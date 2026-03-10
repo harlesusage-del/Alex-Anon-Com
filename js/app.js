@@ -838,26 +838,30 @@ function _initUsernameScreen() {
   input.value = '';
   if (counter)   counter.textContent  = '0 / 20';
   if (errorEl)   errorEl.textContent  = '';
-  if (btnLaunch) btnLaunch.disabled   = true;
 
-  setTimeout(() => { try { input.focus(); } catch {} }, 320);
-
-  /* Live counter */
-  input.oninput = () => {
-    const len = input.value.length;
-    if (counter) counter.textContent = `${len} / 20`;
-    if (errorEl) errorEl.textContent = '';
-    if (btnLaunch) btnLaunch.disabled = len < 3;
-  };
-
-  input.onkeydown = e => { if (e.key === 'Enter') _handleLaunch(); };
-
-  /* Remove stale listeners by cloning */
-  const freshLaunch = btnLaunch?.cloneNode(true);
-  if (freshLaunch) { btnLaunch.replaceWith(freshLaunch); freshLaunch.onclick = _handleLaunch; }
+  /* Remove stale listeners by cloning BEFORE wiring oninput */
+  if (btnLaunch) {
+    const freshLaunch = btnLaunch.cloneNode(true);
+    btnLaunch.replaceWith(freshLaunch);
+    freshLaunch.disabled = true;
+    freshLaunch.onclick  = _handleLaunch;
+  }
 
   const freshRecover = btnRecover?.cloneNode(true);
   if (freshRecover) { btnRecover.replaceWith(freshRecover); freshRecover.onclick = () => _openModal('modal-recovery'); }
+
+  setTimeout(() => { try { input.focus(); } catch {} }, 320);
+
+  /* Live counter — always query fresh btn-launch from DOM */
+  input.oninput = () => {
+    const len  = input.value.length;
+    const btn  = $('btn-launch');
+    if (counter) counter.textContent = `${len} / 20`;
+    if (errorEl) errorEl.textContent = '';
+    if (btn) btn.disabled = len < 3;
+  };
+
+  input.onkeydown = e => { if (e.key === 'Enter') _handleLaunch(); };
 }
 
 function _validateUsername(raw) {
@@ -1220,12 +1224,24 @@ function _initChatScreen() {
 
   /* ── Message input ── */
   const chatInput = $('chat-input');
-  const btnSend   = $('btn-chat-send');
+  // Clone btnSend FIRST, then wire oninput against the fresh node
+  const _oldBtnSend = $('btn-chat-send');
+  let btnSend = _oldBtnSend;
+  if (_oldBtnSend) {
+    const f = _oldBtnSend.cloneNode(true);
+    _oldBtnSend.replaceWith(f);
+    btnSend = f;
+    f.onclick = _sendChatMessage;
+  }
   if (chatInput) {
-    chatInput.oninput   = () => { autoResizeTextarea(chatInput); if (btnSend) btnSend.disabled = !chatInput.value.trim(); _onChatTyping(); };
+    chatInput.oninput   = () => {
+      autoResizeTextarea(chatInput);
+      const fresh = $('btn-chat-send');
+      if (fresh) fresh.disabled = !chatInput.value.trim();
+      _onChatTyping();
+    };
     chatInput.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendChatMessage(); } };
   }
-  if (btnSend) { const f = btnSend.cloneNode(true); btnSend.replaceWith(f); f.onclick = _sendChatMessage; }
 }
 
 function _toggleChatPanel(show) {
@@ -1308,7 +1324,7 @@ async function _joinChatRoom(roomName) {
 }
 
 async function _sendChatMessage() {
-  const input  = $('chat-input');
+  const input   = $('chat-input');
   const btnSend = $('btn-chat-send');
   if (!input || !STATE.chat.channel || !STATE.identity) return;
 
