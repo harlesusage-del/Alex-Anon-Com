@@ -2096,6 +2096,107 @@ body:has(input:hover) .cursor-ring {
   opacity: 0.5;
 }
 
+/* ── P2P Step Layout (WhatsApp-style connect flow) ── */
+.p2p-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.p2p-step__num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(155, 89, 255, 0.18);
+  border: 1px solid rgba(155, 89, 255, 0.35);
+  color: var(--color-purple);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.p2p-step__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.p2p-step__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ── My ID box (the big copyable token display) ── */
+.p2p-my-id-box {
+  background: rgba(155, 89, 255, 0.08);
+  border: 1px solid rgba(155, 89, 255, 0.22);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.p2p-my-id-box__label {
+  font-family: var(--font-display);
+  font-size: 0.48rem;
+  letter-spacing: 0.18em;
+  color: var(--color-purple-dim);
+  text-transform: uppercase;
+}
+
+.p2p-my-id-box__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.p2p-my-id-box__value {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--color-purple);
+  letter-spacing: 0.06em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-all;
+}
+
+/* ── P2P divider between steps ── */
+.p2p-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(155, 89, 255, 0.20) 30%,
+    rgba(155, 89, 255, 0.20) 70%,
+    transparent 100%);
+  margin: var(--space-2) 0;
+}
+
+/* ── Accent btn-icon ── */
+.btn-icon--accent {
+  color: var(--color-purple);
+  background: rgba(155, 89, 255, 0.12);
+  border-color: rgba(155, 89, 255, 0.25);
+}
+.btn-icon--accent:hover {
+  background: rgba(155, 89, 255, 0.22);
+  border-color: rgba(155, 89, 255, 0.45);
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    15  VOICE & VIDEO CALL SCREEN

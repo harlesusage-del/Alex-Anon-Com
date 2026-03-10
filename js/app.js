@@ -838,30 +838,26 @@ function _initUsernameScreen() {
   input.value = '';
   if (counter)   counter.textContent  = '0 / 20';
   if (errorEl)   errorEl.textContent  = '';
-
-  /* Remove stale listeners by cloning BEFORE wiring oninput */
-  if (btnLaunch) {
-    const freshLaunch = btnLaunch.cloneNode(true);
-    btnLaunch.replaceWith(freshLaunch);
-    freshLaunch.disabled = true;
-    freshLaunch.onclick  = _handleLaunch;
-  }
-
-  const freshRecover = btnRecover?.cloneNode(true);
-  if (freshRecover) { btnRecover.replaceWith(freshRecover); freshRecover.onclick = () => _openModal('modal-recovery'); }
+  if (btnLaunch) btnLaunch.disabled   = true;
 
   setTimeout(() => { try { input.focus(); } catch {} }, 320);
 
-  /* Live counter — always query fresh btn-launch from DOM */
+  /* Live counter */
   input.oninput = () => {
-    const len  = input.value.length;
-    const btn  = $('btn-launch');
+    const len = input.value.length;
     if (counter) counter.textContent = `${len} / 20`;
     if (errorEl) errorEl.textContent = '';
-    if (btn) btn.disabled = len < 3;
+    if (btnLaunch) btnLaunch.disabled = len < 3;
   };
 
   input.onkeydown = e => { if (e.key === 'Enter') _handleLaunch(); };
+
+  /* Remove stale listeners by cloning */
+  const freshLaunch = btnLaunch?.cloneNode(true);
+  if (freshLaunch) { btnLaunch.replaceWith(freshLaunch); freshLaunch.onclick = _handleLaunch; }
+
+  const freshRecover = btnRecover?.cloneNode(true);
+  if (freshRecover) { btnRecover.replaceWith(freshRecover); freshRecover.onclick = () => _openModal('modal-recovery'); }
 }
 
 function _validateUsername(raw) {
@@ -1224,24 +1220,12 @@ function _initChatScreen() {
 
   /* ── Message input ── */
   const chatInput = $('chat-input');
-  // Clone btnSend FIRST, then wire oninput against the fresh node
-  const _oldBtnSend = $('btn-chat-send');
-  let btnSend = _oldBtnSend;
-  if (_oldBtnSend) {
-    const f = _oldBtnSend.cloneNode(true);
-    _oldBtnSend.replaceWith(f);
-    btnSend = f;
-    f.onclick = _sendChatMessage;
-  }
+  const btnSend   = $('btn-chat-send');
   if (chatInput) {
-    chatInput.oninput   = () => {
-      autoResizeTextarea(chatInput);
-      const fresh = $('btn-chat-send');
-      if (fresh) fresh.disabled = !chatInput.value.trim();
-      _onChatTyping();
-    };
+    chatInput.oninput   = () => { autoResizeTextarea(chatInput); if (btnSend) btnSend.disabled = !chatInput.value.trim(); _onChatTyping(); };
     chatInput.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendChatMessage(); } };
   }
+  if (btnSend) { const f = btnSend.cloneNode(true); btnSend.replaceWith(f); f.onclick = _sendChatMessage; }
 }
 
 function _toggleChatPanel(show) {
@@ -1324,7 +1308,7 @@ async function _joinChatRoom(roomName) {
 }
 
 async function _sendChatMessage() {
-  const input   = $('chat-input');
+  const input  = $('chat-input');
   const btnSend = $('btn-chat-send');
   if (!input || !STATE.chat.channel || !STATE.identity) return;
 
@@ -1421,55 +1405,100 @@ function _cleanupChat() {
 
 function _initPrivateChatScreen() {
   /* ── Back ── */
-  _onclick('btn-back-from-private', () => showScreen('screen-dashboard'));
+  _onclick('btn-back-from-private', () => {
+    _cleanupPrivateChat();
+    showScreen('screen-dashboard');
+  });
 
-  /* ── My token display ── */
+  /* ── New chat button (shown when connected, to reset and chat with someone else) ── */
+  _onclick('btn-private-new-chat', () => {
+    _cleanupPrivateChat();
+    _togglePrivatePanel(true);
+    const el = $('btn-private-new-chat');
+    if (el) el.hidden = true;
+    const tokenInput = $('private-token-input');
+    if (tokenInput) { tokenInput.value = ''; setTimeout(() => { try { tokenInput.focus(); } catch {} }, 200); }
+  });
+
+  /* ── Populate my token in header bar + big box ── */
   if (STATE.identity) {
     _setEl('private-my-token-display', STATE.identity.token);
+    _setEl('p2p-mytoken-big', STATE.identity.token);
     const avatarEl = $('private-input-avatar');
     if (avatarEl) avatarEl.innerHTML = renderRocketSVG(STATE.identity.rocketConfig, 28);
   }
 
-  /* ── Copy my token ── */
+  /* ── Copy my token (header bar) ── */
   _onclick('btn-copy-my-token', async () => {
     if (!STATE.identity) return;
     const ok = await copyToClipboard(STATE.identity.token);
-    showToast(ok ? 'Your token copied!' : 'Copy failed.', ok ? 'success' : 'error');
+    showToast(ok ? 'Your Chat ID copied!' : 'Copy failed.', ok ? 'success' : 'error');
   });
 
-  /* ── Show connect panel initially ── */
-  _togglePrivatePanel(true);
+  /* ── Copy my token (big box in connect panel) ── */
+  _onclick('btn-copy-my-token-big', async () => {
+    if (!STATE.identity) return;
+    const ok = await copyToClipboard(STATE.identity.token);
+    showToast(ok ? 'Your Chat ID copied! Share it with your peer.' : 'Copy failed.', ok ? 'success' : 'error');
+  });
+
+  /* ── Show connect panel initially (or stay in chat if already connected) ── */
+  if (!STATE.privateChat.connected) {
+    _togglePrivatePanel(true);
+  }
 
   /* ── Connect to peer ── */
-  const tokenInput  = $('private-token-input');
-  const btnConnect  = $('btn-connect-peer');
-  const errorEl     = $('private-token-error');
+  const tokenInput = $('private-token-input');
+  const errorEl    = $('private-token-error');
 
   const doConnect = () => {
     const raw = (tokenInput?.value ?? '').trim();
-    if (!raw || !raw.startsWith('u_') || raw.length < 10) {
-      if (errorEl) errorEl.textContent = 'Enter a valid token (starts with u_).';
+    // Accept with or without "u_" prefix — normalise
+    const full = raw.startsWith('u_') ? raw : (raw.length >= 8 ? 'u_' + raw : raw);
+    if (!full || !full.startsWith('u_') || full.length < 10) {
+      if (errorEl) errorEl.textContent = 'Enter a valid Chat ID (starts with u_).';
       return;
     }
-    if (raw === STATE.identity?.token) {
+    if (full === STATE.identity?.token) {
       if (errorEl) errorEl.textContent = 'You cannot connect to yourself.';
       return;
     }
     if (errorEl) errorEl.textContent = '';
-    _connectPrivatePeer(raw);
+    _connectPrivatePeer(full);
   };
 
-  if (btnConnect)  { const f = btnConnect.cloneNode(true); btnConnect.replaceWith(f); f.onclick = doConnect; }
-  if (tokenInput)  { tokenInput.onkeydown = e => { if (e.key === 'Enter') doConnect(); }; setTimeout(() => { try { tokenInput.focus(); } catch {} }, 280); }
-
-  /* ── Private message input ── */
-  const privInput = $('private-chat-input');
-  const btnSend   = $('btn-private-send');
-  if (privInput) {
-    privInput.oninput   = () => { autoResizeTextarea(privInput); if (btnSend) btnSend.disabled = !privInput.value.trim(); _onPrivateTyping(); };
-    privInput.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendPrivateMessage(); } };
+  /* Clone connect button FIRST to remove stale listeners */
+  const _oldBtnConnect = $('btn-connect-peer');
+  if (_oldBtnConnect) {
+    const f = _oldBtnConnect.cloneNode(true);
+    _oldBtnConnect.replaceWith(f);
+    f.onclick = doConnect;
   }
-  if (btnSend) { const f = btnSend.cloneNode(true); btnSend.replaceWith(f); f.onclick = _sendPrivateMessage; }
+  if (tokenInput) {
+    tokenInput.onkeydown = e => { if (e.key === 'Enter') doConnect(); };
+    setTimeout(() => { try { tokenInput.focus(); } catch {} }, 280);
+  }
+
+  /* ── Private message send button — clone FIRST, then wire oninput ── */
+  const _oldBtnSend = $('btn-private-send');
+  if (_oldBtnSend) {
+    const f = _oldBtnSend.cloneNode(true);
+    _oldBtnSend.replaceWith(f);
+    f.onclick = _sendPrivateMessage;
+  }
+
+  const privInput = $('private-chat-input');
+  if (privInput) {
+    privInput.oninput = () => {
+      autoResizeTextarea(privInput);
+      const freshBtn = $('btn-private-send');
+      if (freshBtn) freshBtn.disabled = !privInput.value.trim() || !STATE.privateChat.connected;
+      _onPrivateTyping();
+    };
+    privInput.onkeydown = e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendPrivateMessage(); }
+    };
+  }
 }
 
 function _togglePrivatePanel(show) {
@@ -1491,19 +1520,25 @@ async function _connectPrivatePeer(peerToken) {
   _cleanupPrivateChat();
   STATE.privateChat.peerToken = peerToken;
 
-  /* Room ID: deterministic from both tokens */
+  /* Room ID: deterministic from both tokens — only these two users share this room */
   const myToken = STATE.identity.token;
   const sorted  = [myToken, peerToken].sort();
   const roomId  = (await sha256(sorted.join('|') + '_alex_p2p_v1_')).slice(0, 16);
   STATE.privateChat.roomId    = roomId;
-  STATE.privateChat.isOfferer = myToken < peerToken; // alphabetically lower = offerer
+  STATE.privateChat.isOfferer = myToken < peerToken;
 
-  /* UI: show messages area */
-  _setConnBadge('private-connection-status', 'connecting', 'Connecting...');
+  /* Show messages area, hide connect panel */
+  _setConnBadge('private-connection-status', 'connecting', 'Waiting for peer...');
   _togglePrivatePanel(false);
+
+  /* Show "New Chat" button so user can reset */
+  const newChatBtn = $('btn-private-new-chat');
+  if (newChatBtn) newChatBtn.hidden = false;
+
   const msgEl = $('private-messages');
   if (msgEl) msgEl.innerHTML = '';
-  _appendSystemMessage('private-messages', '— Establishing encrypted P2P channel... —');
+  _appendSystemMessage('private-messages',
+    `— Connecting to peer · Share your Chat ID if they haven\'t connected yet —`);
 
   /* Subscribe to Supabase signaling channel */
   const sigCh = STATE.supabase.channel(`p2p:${roomId}`, {
@@ -1511,21 +1546,23 @@ async function _connectPrivatePeer(peerToken) {
   });
   STATE.privateChat.signalingChannel = sigCh;
 
-  sigCh.on('broadcast', { event: 'p2p-offer'     }, ({ payload }) => _onPrivateSignal_Offer(payload));
-  sigCh.on('broadcast', { event: 'p2p-answer'    }, ({ payload }) => _onPrivateSignal_Answer(payload));
-  sigCh.on('broadcast', { event: 'p2p-ice'       }, ({ payload }) => _onPrivateSignal_ICE(payload));
-  sigCh.on('broadcast', { event: 'p2p-meta'      }, ({ payload }) => _onPrivatePeerMeta(payload));
-  sigCh.on('broadcast', { event: 'p2p-typing'    }, ({ payload }) => {
+  sigCh.on('broadcast', { event: 'p2p-offer'  }, ({ payload }) => _onPrivateSignal_Offer(payload));
+  sigCh.on('broadcast', { event: 'p2p-answer' }, ({ payload }) => _onPrivateSignal_Answer(payload));
+  sigCh.on('broadcast', { event: 'p2p-ice'    }, ({ payload }) => _onPrivateSignal_ICE(payload));
+  sigCh.on('broadcast', { event: 'p2p-meta'   }, ({ payload }) => _onPrivatePeerMeta(payload));
+  sigCh.on('broadcast', { event: 'p2p-typing' }, () => {
     _showTypingIndicator('private-typing-indicator', null, 'Peer is typing...');
   });
 
   sigCh.subscribe(async status => {
     if (status === 'SUBSCRIBED') {
       /* Announce our metadata to peer */
-      await sigCh.send({ type:'broadcast', event:'p2p-meta', payload: {
-        token: STATE.identity.token, username: STATE.identity.username,
-        rocketId: STATE.identity.rocketId, rocketConfig: STATE.identity.rocketConfig,
-      }}).catch(()=>{});
+      await sigCh.send({ type: 'broadcast', event: 'p2p-meta', payload: {
+        token: STATE.identity.token,
+        username: STATE.identity.username,
+        rocketId: STATE.identity.rocketId,
+        rocketConfig: STATE.identity.rocketConfig,
+      }}).catch(() => {});
 
       if (STATE.privateChat.isOfferer) {
         await _createPrivateOffer();
@@ -1552,16 +1589,18 @@ function _createPrivatePeerConnection() {
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
     switch (s) {
-      case 'connected':
-        _setConnBadge('private-connection-status', 'connected', 'Connected · E2E');
+      case 'connected': {
+        const peerName = STATE.privateChat.peerInfo?.username ?? 'Peer';
+        _setConnBadge('private-connection-status', 'connected', `${peerName} · E2E Encrypted`);
         STATE.privateChat.connected = true;
         _enablePrivateInput(true);
-        _appendSystemMessage('private-messages', '— Encrypted P2P channel open —');
-        showToast('Private channel connected!', 'success');
+        _appendSystemMessage('private-messages', `— Encrypted channel open with ${sanitizeHTML(peerName)} —`);
+        showToast(`Connected to ${peerName}!`, 'success');
         break;
+      }
       case 'disconnected':
       case 'failed':
-        _setConnBadge('private-connection-status', 'error', 'Disconnected');
+        _setConnBadge('private-connection-status', 'error', 'Peer disconnected');
         STATE.privateChat.connected = false;
         _enablePrivateInput(false);
         _appendSystemMessage('private-messages', '— Peer disconnected —');
@@ -1718,6 +1757,7 @@ function _sendPrivateMessage() {
     input.value = '';
     autoResizeTextarea(input);
     if (btnSend) btnSend.disabled = true;
+    try { input.focus(); } catch {}
   } catch (e) {
     showToast('Send failed. Channel may have closed.', 'error');
     console.error('[DataChannel] send error:', e);
@@ -1750,7 +1790,10 @@ function _appendPrivateMessage(msg, isOutgoing) {
 function _enablePrivateInput(enabled) {
   const input   = $('private-chat-input');
   const btnSend = $('btn-private-send');
-  if (input)   { input.disabled = !enabled; if (enabled) setTimeout(() => { try { input.focus(); } catch {} }, 200); }
+  if (input) {
+    input.disabled = !enabled;
+    if (enabled) setTimeout(() => { try { input.focus(); } catch {} }, 200);
+  }
   if (btnSend) btnSend.disabled = !enabled || !(input?.value?.trim());
 }
 
@@ -1773,6 +1816,9 @@ function _cleanupPrivateChat() {
   STATE.privateChat.isOfferer          = false;
   STATE.privateChat.peerInfo           = null;
   STATE.privateChat.iceCandidateBuffer = [];
+  /* Reset header peer badge and new-chat button */
+  const badge = $('private-peer-badge'); if (badge) badge.hidden = true;
+  const newChatBtn = $('btn-private-new-chat'); if (newChatBtn) newChatBtn.hidden = true;
 }
 /* ═══════════════════════════════════════════════════════════════════════
    §20  CALL SYSTEM  — WebRTC mesh for voice/video (up to 4 peers)

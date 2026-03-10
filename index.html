@@ -530,13 +530,13 @@
       <!-- ── 3 Feature Tiles ── -->
       <nav class="dash-tiles" role="navigation" aria-label="Communication features">
 
-        <!-- Chat tile -->
+        <!-- Chat tile — goes directly to P2P private chat -->
         <button
           class="dash-tile dash-tile--chat"
           id="card-chat"
           type="button"
-          data-target="screen-chat"
-          aria-label="Chat — anonymous real-time messaging"
+          data-target="screen-private-chat"
+          aria-label="Chat — private P2P encrypted messaging"
         >
           <div class="dash-tile__glow" aria-hidden="true"></div>
           <div class="dash-tile__icon" aria-hidden="true">
@@ -547,7 +547,7 @@
             </svg>
           </div>
           <span class="dash-tile__label">Chat</span>
-          <span class="dash-tile__sub">Anonymous · Real-time</span>
+          <span class="dash-tile__sub">P2P · Token-based · E2E</span>
           <span class="dash-tile__arrow" aria-hidden="true">↗</span>
         </button>
 
@@ -597,22 +597,8 @@
       </nav>
       <!-- /dash-tiles -->
 
-      <!-- Private chat link (subtle, below tiles) -->
-      <div class="dash-private-link">
-        <button
-          class="btn-link-dim"
-          id="card-private"
-          type="button"
-          data-target="screen-private-chat"
-          aria-label="Open private P2P encrypted chat"
-        >
-          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="12" height="12">
-            <rect x="5" y="7" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.3"/>
-            <path d="M6.5 7V5C6.5 3.9 7.4 3 8.5 3C9.6 3 10.5 3.9 10.5 5V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-          </svg>
-          Private Encrypted Chat
-        </button>
-      </div>
+      <!-- Private chat is now the main Chat tile above -->
+      <div class="dash-private-link" style="display:none" aria-hidden="true"></div>
 
     </main>
     <!-- /dash-center -->
@@ -894,12 +880,26 @@
               <span class="peer-badge__rocket-id" id="private-peer-rocket-id">—</span>
             </div>
           </div>
+          <button
+            class="btn-icon btn-icon--header"
+            id="btn-private-new-chat"
+            type="button"
+            aria-label="Start a new private chat"
+            title="New chat"
+            hidden
+          >
+            <!-- New chat / compose icon -->
+            <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M9 3H4C3.45 3 3 3.45 3 4V14C3 14.55 3.45 15 4 15H14C14.55 15 15 14.55 15 14V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M11 2L16 7L10 13H5V8L11 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       </header>
 
       <!-- ── My Token Bar (always visible for sharing) ── -->
       <div class="my-token-bar" aria-label="Your communication token">
-        <span class="my-token-bar__label" aria-hidden="true">YOUR TOKEN:</span>
+        <span class="my-token-bar__label" aria-hidden="true">YOUR ID:</span>
         <span class="my-token-bar__value" id="private-my-token-display">—</span>
         <button
           class="btn-icon"
@@ -918,46 +918,76 @@
       <!-- ── Connect to Peer Panel ── -->
       <div class="join-panel" id="private-connect-panel">
         <div class="join-panel__content">
-          <div class="join-panel__icon join-panel__icon--private" aria-hidden="true">
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="20" cy="20" r="14" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/>
-              <circle cx="20" cy="20" r="7"  stroke="currentColor" stroke-width="1.5"/>
-              <circle cx="20" cy="20" r="2.5" fill="currentColor"/>
-            </svg>
+
+          <!-- Step 1: Your own token (share to peer) -->
+          <div class="p2p-step">
+            <div class="p2p-step__num" aria-hidden="true">1</div>
+            <div class="p2p-step__body">
+              <p class="p2p-step__title">Share your ID with the person you want to chat with</p>
+              <div class="p2p-my-id-box">
+                <span class="p2p-my-id-box__label" aria-hidden="true">Your Chat ID</span>
+                <div class="p2p-my-id-box__row">
+                  <span class="p2p-my-id-box__value" id="p2p-mytoken-big">—</span>
+                  <button
+                    class="btn-icon btn-icon--accent"
+                    id="btn-copy-my-token-big"
+                    type="button"
+                    aria-label="Copy your Chat ID"
+                    title="Copy Chat ID"
+                  >
+                    <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
+                      <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-          <h3 class="join-panel__title">Connect to a Peer</h3>
-          <p class="join-panel__desc">
-            Enter the communication token of the person you want to message privately.
-            Messages travel directly between devices — no server, no logs.
-          </p>
-          <div class="join-panel__input-row">
-            <span class="input-field-prefix" aria-hidden="true">u_</span>
-            <input
-              type="text"
-              id="private-token-input"
-              class="input-field"
-              placeholder="peer's token..."
-              maxlength="30"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="none"
-              spellcheck="false"
-              aria-label="Peer's communication token"
-              aria-describedby="private-token-hint private-token-error"
-            />
+
+          <!-- Divider -->
+          <div class="p2p-divider" aria-hidden="true"></div>
+
+          <!-- Step 2: Enter peer's token -->
+          <div class="p2p-step">
+            <div class="p2p-step__num" aria-hidden="true">2</div>
+            <div class="p2p-step__body">
+              <p class="p2p-step__title">Enter the Chat ID of the person you want to reach</p>
+              <div class="join-panel__input-row">
+                <span class="input-field-prefix" aria-hidden="true">u_</span>
+                <input
+                  type="text"
+                  id="private-token-input"
+                  class="input-field"
+                  placeholder="paste their Chat ID here..."
+                  maxlength="30"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  aria-label="Peer's Chat ID"
+                  aria-describedby="private-token-hint private-token-error"
+                />
+              </div>
+              <p class="input-hint" id="private-token-hint">
+                Messages go directly device-to-device — zero server storage.
+              </p>
+              <p class="input-error" id="private-token-error" role="alert" aria-live="assertive"></p>
+              <button
+                class="btn btn--primary btn--private"
+                id="btn-connect-peer"
+                type="button"
+                aria-label="Connect to peer and open private chat"
+              >
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="14" height="14" style="margin-right:6px">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/>
+                  <path d="M8 5V8L10 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span class="btn__text">CONNECT</span>
+              </button>
+            </div>
           </div>
-          <p class="input-hint" id="private-token-hint">
-            Paste or type the full token your peer shared with you.
-          </p>
-          <p class="input-error" id="private-token-error" role="alert" aria-live="assertive"></p>
-          <button
-            class="btn btn--primary btn--private"
-            id="btn-connect-peer"
-            type="button"
-            aria-label="Connect to peer and open private chat"
-          >
-            <span class="btn__text">CONNECT</span>
-          </button>
+
         </div>
       </div>
 
