@@ -823,237 +823,187 @@
        ╚═══════════════════════════════════════════════════════════════╝ -->
   <section
     id="screen-private-chat"
-    class="screen screen--chat"
+    class="screen"
     data-screen="private-chat"
     aria-label="Private peer-to-peer encrypted chat"
     hidden
   >
-    <div class="chat-layout">
+  <div class="wa-layout">
 
-      <!-- ── Private Chat Header ── -->
-      <header class="chat-header chat-header--private" role="banner">
-        <div class="chat-header__left">
-          <button
-            class="btn-back"
-            id="btn-back-from-private"
-            type="button"
-            aria-label="Return to dashboard"
-          >
-            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="chat-header__info">
-            <h2 class="chat-header__title">
-              <!-- Lock icon -->
-              <svg class="header-icon-lock" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <rect x="2.5" y="7" width="11" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
-                <path d="M4.5 7V5.5C4.5 3.57 6.07 2 8 2C9.93 2 11.5 3.57 11.5 5.5V7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-              </svg>
-              Private Chat
-            </h2>
-            <!-- Connection status (updates dynamically) -->
-            <div
-              class="chat-header__sub"
-              id="private-connection-status"
-              role="status"
-              aria-live="polite"
-            >
-              <span class="conn-dot conn-dot--idle" aria-hidden="true"></span>
-              <span class="conn-text">Not connected</span>
-            </div>
-          </div>
-        </div>
-        <!-- Peer info badge (JS shows this when connected) -->
-        <div class="chat-header__right">
-          <div
-            class="peer-badge"
-            id="private-peer-badge"
-            aria-label="Connected peer identity"
-            hidden
-          >
-            <div class="peer-badge__rocket" id="private-peer-rocket" aria-hidden="true">
-              <!-- Peer's tiny rocket injected by JS -->
-            </div>
-            <div class="peer-badge__info">
-              <span class="peer-badge__name"     id="private-peer-name">—</span>
-              <span class="peer-badge__rocket-id" id="private-peer-rocket-id">—</span>
-            </div>
-          </div>
-          <button
-            class="btn-icon btn-icon--header"
-            id="btn-private-new-chat"
-            type="button"
-            aria-label="Start a new private chat"
-            title="New chat"
-            hidden
-          >
-            <!-- New chat / compose icon -->
-            <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M9 3H4C3.45 3 3 3.45 3 4V14C3 14.55 3.45 15 4 15H14C14.55 15 15 14.55 15 14V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M11 2L16 7L10 13H5V8L11 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-      </header>
+    <!-- ═══════════════════════════════════
+         LEFT SIDEBAR — Chats list + my ID
+    ═══════════════════════════════════ -->
+    <aside class="wa-sidebar" id="wa-sidebar">
 
-      <!-- ── My Token Bar (always visible for sharing) ── -->
-      <div class="my-token-bar" aria-label="Your communication token">
-        <span class="my-token-bar__label" aria-hidden="true">YOUR ID:</span>
-        <span class="my-token-bar__value" id="private-my-token-display">—</span>
-        <button
-          class="btn-icon"
-          id="btn-copy-my-token"
-          type="button"
-          aria-label="Copy your token to clipboard"
-          title="Copy my token"
-        >
-          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
-            <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <!-- Sidebar top bar -->
+      <div class="wa-sidebar__topbar">
+        <button class="wa-back-btn" id="btn-back-from-private" type="button" aria-label="Back to dashboard">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <span class="wa-sidebar__title">Chats</span>
+        <button class="wa-icon-btn" id="btn-wa-new-chat" type="button" aria-label="New chat" title="New chat">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M4 4h12a1 1 0 011 1v8a1 1 0 01-1 1h-6l-4 3v-3H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M7 8h6M7 11h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
 
-      <!-- ── Connect to Peer Panel ── -->
-      <div class="join-panel" id="private-connect-panel">
-        <div class="join-panel__content">
-
-          <!-- Step 1: Your own token (share to peer) -->
-          <div class="p2p-step">
-            <div class="p2p-step__num" aria-hidden="true">1</div>
-            <div class="p2p-step__body">
-              <p class="p2p-step__title">Share your ID with the person you want to chat with</p>
-              <div class="p2p-my-id-box">
-                <span class="p2p-my-id-box__label" aria-hidden="true">Your Chat ID</span>
-                <div class="p2p-my-id-box__row">
-                  <span class="p2p-my-id-box__value" id="p2p-mytoken-big">—</span>
-                  <button
-                    class="btn-icon btn-icon--accent"
-                    id="btn-copy-my-token-big"
-                    type="button"
-                    aria-label="Copy your Chat ID"
-                    title="Copy Chat ID"
-                  >
-                    <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                      <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
-                      <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
+      <!-- My ID card (always shown, tap to copy) -->
+      <div class="wa-myid-card">
+        <div class="wa-myid-card__avatar" id="wa-my-avatar" aria-hidden="true"></div>
+        <div class="wa-myid-card__body">
+          <span class="wa-myid-card__name" id="wa-my-name">—</span>
+          <div class="wa-myid-card__row">
+            <span class="wa-myid-card__token" id="private-my-token-display">—</span>
+            <button class="wa-copy-btn" id="btn-copy-my-token" type="button" aria-label="Copy my Chat ID">
+              <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
+                <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+            </button>
           </div>
+        </div>
+      </div>
 
-          <!-- Divider -->
-          <div class="p2p-divider" aria-hidden="true"></div>
+      <!-- Divider -->
+      <div class="wa-sidebar__divider" aria-hidden="true"></div>
 
-          <!-- Step 2: Enter peer's token -->
-          <div class="p2p-step">
-            <div class="p2p-step__num" aria-hidden="true">2</div>
-            <div class="p2p-step__body">
-              <p class="p2p-step__title">Enter the Chat ID of the person you want to reach</p>
-              <div class="join-panel__input-row">
-                <span class="input-field-prefix" aria-hidden="true">u_</span>
-                <input
-                  type="text"
-                  id="private-token-input"
-                  class="input-field"
-                  placeholder="paste their Chat ID here..."
-                  maxlength="30"
-                  autocomplete="off"
-                  autocorrect="off"
-                  autocapitalize="none"
-                  spellcheck="false"
-                  aria-label="Peer's Chat ID"
-                  aria-describedby="private-token-hint private-token-error"
-                />
-              </div>
-              <p class="input-hint" id="private-token-hint">
-                Messages go directly device-to-device — zero server storage.
-              </p>
-              <p class="input-error" id="private-token-error" role="alert" aria-live="assertive"></p>
-              <button
-                class="btn btn--primary btn--private"
-                id="btn-connect-peer"
-                type="button"
-                aria-label="Connect to peer and open private chat"
-              >
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="14" height="14" style="margin-right:6px">
-                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/>
-                  <path d="M8 5V8L10 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                </svg>
-                <span class="btn__text">CONNECT</span>
-              </button>
+      <!-- Conversation list (JS renders items) -->
+      <div class="wa-conv-list" id="wa-conv-list" role="list" aria-label="Conversations">
+        <!-- empty state -->
+        <div class="wa-conv-empty" id="wa-conv-empty">
+          <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <path d="M5 7h30a2 2 0 012 2v17a2 2 0 01-2 2H22l-6 5v-5H5a2 2 0 01-2-2V9a2 2 0 012-2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            <path d="M11 17h18M11 21h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <p>No conversations yet</p>
+          <p class="wa-conv-empty__hint">Tap <strong>New chat</strong> to start</p>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ═══════════════════════════════════
+         RIGHT MAIN PANEL
+    ═══════════════════════════════════ -->
+    <div class="wa-main" id="wa-main">
+
+      <!-- ── NEW CHAT PANEL (shown when no active chat) ── -->
+      <div class="wa-welcome" id="wa-welcome">
+        <div class="wa-welcome__inner">
+          <div class="wa-welcome__icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="26" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.25"/>
+              <circle cx="32" cy="32" r="15" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+              <circle cx="32" cy="32" r="5"  fill="currentColor" opacity="0.7"/>
+              <circle cx="10" cy="32" r="3"  fill="currentColor" opacity="0.3"/>
+              <circle cx="54" cy="32" r="3"  fill="currentColor" opacity="0.3"/>
+            </svg>
+          </div>
+          <h3 class="wa-welcome__title">New Encrypted Chat</h3>
+          <p class="wa-welcome__desc">Enter the Chat ID of the person you want to reach. Messages travel directly device‑to‑device — zero server, zero logs.</p>
+
+          <div class="wa-form">
+            <label class="wa-form__label" for="private-token-input">Peer's Chat ID</label>
+            <div class="wa-form__input-row">
+              <span class="wa-form__prefix">u_</span>
+              <input
+                type="text"
+                id="private-token-input"
+                class="wa-form__input"
+                placeholder="Paste their Chat ID here..."
+                maxlength="30"
+                autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                aria-label="Peer Chat ID"
+                aria-describedby="private-token-hint private-token-error"
+              />
             </div>
+            <p class="wa-form__hint" id="private-token-hint">Paste the full ID shared by your contact</p>
+            <p class="wa-form__error" id="private-token-error" role="alert" aria-live="assertive"></p>
+            <button class="wa-connect-btn" id="btn-connect-peer" type="button">
+              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true" width="15" height="15">
+                <path d="M16 9H2M9.5 3L16 9l-6.5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Connect
+            </button>
           </div>
 
         </div>
       </div>
+      <!-- /wa-welcome -->
 
-      <!-- ── Private Messages Area ── -->
-      <div class="chat-body" id="private-chat-body">
-        <div
-          class="chat-messages"
-          id="private-messages"
-          role="log"
-          aria-label="Private chat messages"
-          aria-live="polite"
-          aria-relevant="additions"
-          tabindex="0"
-        >
-          <!-- Messages injected by JS (same structure as public chat) -->
+      <!-- ── ACTIVE CHAT VIEW ── -->
+      <div class="wa-chat" id="wa-chat-view" hidden>
+
+        <!-- Chat top bar -->
+        <header class="wa-chat__header">
+          <!-- mobile back button -->
+          <button class="wa-chat__back-mobile" id="btn-wa-back-mobile" type="button" aria-label="Back to chats">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <!-- peer avatar + info -->
+          <div class="wa-chat__peer-avatar" id="wa-peer-avatar" aria-hidden="true"></div>
+          <div class="wa-chat__peer-info">
+            <span class="wa-chat__peer-name" id="private-peer-name">—</span>
+            <div class="wa-chat__status" id="private-connection-status" role="status" aria-live="polite">
+              <span class="conn-dot conn-dot--idle" aria-hidden="true"></span>
+              <span class="conn-text">Connecting...</span>
+            </div>
+          </div>
+          <!-- action buttons -->
+          <div class="wa-chat__actions">
+            <button class="wa-icon-btn" id="btn-export-chat" type="button" aria-label="Export conversation" title="Export chat">
+              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="M9 2v9M6 8l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="wa-icon-btn wa-icon-btn--danger" id="btn-clear-chat" type="button" aria-label="Delete conversation" title="Delete chat">
+              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="M3 5h12M7 5V3.5h4V5M5 5l.8 10h6.4L13 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7.5 8v4M10.5 8v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- Messages -->
+        <div class="wa-messages-wrap" id="private-chat-body">
+          <div class="wa-messages" id="private-messages" role="log" aria-label="Private chat messages" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
+          <div class="typing-indicator" id="private-typing-indicator" aria-live="polite" aria-atomic="true" hidden>
+            <div class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="typing-text">Peer is typing...</span>
+          </div>
         </div>
 
-        <div
-          class="typing-indicator"
-          id="private-typing-indicator"
-          aria-live="polite"
-          aria-atomic="true"
-          hidden
-        >
-          <div class="typing-dots" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <span class="typing-text">Peer is typing...</span>
-        </div>
-      </div>
-
-      <!-- ── Private Input ── -->
-      <div class="chat-input-area" id="private-input-area">
-        <div class="chat-input-wrapper">
-          <div class="chat-input-avatar" id="private-input-avatar" aria-hidden="true"></div>
-          <div class="chat-textarea-wrap">
-            <textarea
-              id="private-chat-input"
-              class="chat-textarea"
-              placeholder="Private message..."
-              rows="1"
-              maxlength="1000"
-              aria-label="Type a private message"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="true"
-              disabled
-            ></textarea>
-          </div>
-          <button
-            class="btn-send"
-            id="btn-private-send"
-            type="button"
-            aria-label="Send private message"
+        <!-- Input bar -->
+        <div class="wa-input-bar" id="private-input-area">
+          <div class="wa-input-bar__my-avatar" id="private-input-avatar" aria-hidden="true"></div>
+          <textarea
+            id="private-chat-input"
+            class="wa-input-bar__textarea"
+            placeholder="Message"
+            rows="1"
+            maxlength="1000"
+            aria-label="Type a message"
+            autocomplete="off" autocorrect="off" spellcheck="true"
             disabled
-          >
-            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          ></textarea>
+          <button class="wa-send-btn" id="btn-private-send" type="button" aria-label="Send" disabled>
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="M18 10L3 3.5L6 10L3 16.5L18 10Z" fill="currentColor"/>
             </svg>
           </button>
         </div>
-        <p class="chat-input-hint" aria-hidden="true">End-to-end via WebRTC DataChannel · messages are not stored</p>
+
       </div>
+      <!-- /wa-chat-view -->
 
     </div>
-    <!-- /chat-layout -->
+    <!-- /wa-main -->
+
+  </div><!-- /wa-layout -->
   </section>
   <!-- /screen-private-chat -->
 
