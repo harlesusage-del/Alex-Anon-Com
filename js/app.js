@@ -1650,6 +1650,10 @@ function _initPrivateChatScreen() {
   _onclick('btn-export-chat', _handleExportChat);
   _onclick('btn-clear-chat',  _handleClearChat);
 
+  /* Wire call buttons */
+  _initRoomCallButtons();
+  _setCallButtonsEnabled(STATE.privateChat.connected);
+
   /* Send button + input */
   const oldSend = $('btn-private-send');
   if (oldSend) { const f = oldSend.cloneNode(true); oldSend.replaceWith(f); f.onclick = _sendRoomMessage; }
@@ -1791,6 +1795,9 @@ async function _joinRoomChat(roomId, password) {
       (STATE.privateChat.peerInfo?.username ?? 'Peer') + ' is typing…');
   });
 
+  /* ── Room call signaling (P2P WebRTC, private) ── */
+  _bindRoomCallSignaling(sigCh);
+
   /* ── Presence: track who is in room ── */
   sigCh.on('presence', { event: 'sync' }, () => {
     const state = sigCh.presenceState();
@@ -1810,6 +1817,7 @@ async function _joinRoomChat(roomId, password) {
       };
       STATE.privateChat.connected = true;
       _enablePrivateInput(true);
+      _setCallButtonsEnabled(true);
       _setConnBadge('private-connection-status', 'connected',
         (peer.username ?? 'Peer') + ' · Online');
       _updatePeerDisplay(peer);
@@ -1858,7 +1866,10 @@ async function _joinRoomChat(roomId, password) {
     _appendRoomSystemMsg(`— ${sanitizeHTML(name)} left the room —`);
     STATE.privateChat.connected = false;
     _enablePrivateInput(false);
+    _setCallButtonsEnabled(false);
     _setConnBadge('private-connection-status', 'connecting', 'Peer disconnected');
+    /* End any active call */
+    if (RC.inCall) { _appendRoomSystemMsg('— Call ended (peer left) —'); _cleanupRoomCall(false); }
     showToast(`${name} left the room.`, 'info');
     _renderPrivateSidebar();
   });
@@ -2056,6 +2067,7 @@ async function _copyField(elId, label) {
 
 /* ─── Cleanup ───────────────────────────────────────────────────── */
 function _cleanupPrivateChat() {
+  _cleanupRoomCall(true);
   if (STATE.privateChat.signalingChannel) {
     STATE.privateChat.signalingChannel.unsubscribe().catch(() => {});
     STATE.privateChat.signalingChannel = null;
@@ -2068,6 +2080,434 @@ function _cleanupPrivateChat() {
   STATE.privateChat.iceCandidateBuffer = [];
   _roomPresence = {};
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   §19b  ROOM PRIVATE CALL — P2P WebRTC audio/video inside private room
+   ───────────────────────────────────────────────────────────────────
+   Signaling: piggybacked on same Supabase channel as chat.
+   No third party knows the call exists — channel name is a hash of
+   roomId+password, unknown to anyone outside the room.
+
+   Events (broadcast on same sigCh):
+     rc-call-offer   { sdp, mode, callerName, callerRocket, iceCandidates }
+     rc-call-answer  { sdp }
+     rc-call-ice     { candidate }
+     rc-call-decline {}
+     rc-call-end     {}
+   ═══════════════════════════════════════════════════════════════════ */
+
+const RC = {
+  pc:             null,   // RTCPeerConnection
+  localStream:    null,   // MediaStream (local camera/mic)
+  mode:           'voice',// 'voice' | 'video'
+  isOfferer:      false,
+  inCall:         false,
+  iceBuf:         [],     // buffered ICE candidates before remote SDP
+  timerInterval:  null,
+  timerSeconds:   0,
+  camFacingUser:  true,
+  localCamOff:    false,
+  localMicMuted:  false,
+};
+
+/* ICE servers (same as CONFIG) */
+const RC_ICE = CONFIG.ICE_SERVERS;
+
+/* ─── Wire call buttons on screen init ─────────────────────────── */
+function _initRoomCallButtons() {
+  _onclick('btn-room-voice-call', () => _startRoomCall('voice'));
+  _onclick('btn-room-video-call', () => _startRoomCall('video'));
+  _onclick('rco-btn-end',         _endRoomCall);
+  _onclick('rco-btn-mute',        _toggleRCMic);
+  _onclick('rco-btn-cam',         _toggleRCCam);
+  _onclick('rco-btn-switch-cam',  _switchRCCam);
+  _onclick('ric-btn-accept',      _acceptIncomingCall);
+  _onclick('ric-btn-decline',     _declineIncomingCall);
+}
+
+/* Called from _joinRoomChat after sigCh is set up */
+function _bindRoomCallSignaling(sigCh) {
+  sigCh.on('broadcast', { event: 'rc-call-offer'   }, ({ payload }) => _onRCOffer(payload));
+  sigCh.on('broadcast', { event: 'rc-call-answer'  }, ({ payload }) => _onRCAnswer(payload));
+  sigCh.on('broadcast', { event: 'rc-call-ice'     }, ({ payload }) => _onRCIce(payload));
+  sigCh.on('broadcast', { event: 'rc-call-decline' }, () => _onRCDecline());
+  sigCh.on('broadcast', { event: 'rc-call-end'     }, () => _onRCEnd());
+}
+
+/* ─── Enable/disable call buttons based on connected state ─────── */
+function _setCallButtonsEnabled(enabled) {
+  const v = $('btn-room-voice-call');
+  const c = $('btn-room-video-call');
+  if (v) v.disabled = !enabled;
+  if (c) c.disabled = !enabled;
+}
+
+/* ─── Outgoing call ─────────────────────────────────────────────── */
+async function _startRoomCall(mode) {
+  if (RC.inCall) return;
+  if (!STATE.privateChat.connected) {
+    showToast('Peer is not online.', 'warn'); return;
+  }
+  RC.mode      = mode;
+  RC.isOfferer = true;
+  RC.inCall    = true;
+
+  /* Get local media */
+  try {
+    RC.localStream = await navigator.mediaDevices.getUserMedia(
+      mode === 'video'
+        ? { video: { facingMode: 'user', width: { ideal: 1280 } }, audio: true }
+        : { audio: true, video: false }
+    );
+  } catch (e) {
+    showToast(`Media access denied: ${e.message}`, 'error');
+    RC.inCall = false; return;
+  }
+
+  _showCallOverlay(mode, 'Calling…');
+  await _rcCreatePC();
+
+  /* Gather all ICE candidates before sending offer (trickle still works) */
+  const offer = await RC.pc.createOffer();
+  await RC.pc.setLocalDescription(offer);
+
+  /* Send offer via shared channel */
+  STATE.privateChat.signalingChannel?.send({
+    type: 'broadcast', event: 'rc-call-offer',
+    payload: {
+      sdp:         RC.pc.localDescription,
+      mode,
+      callerName:   STATE.identity.username,
+      callerRocket: STATE.identity.rocketConfig,
+    },
+  }).catch(() => {});
+}
+
+/* ─── Incoming call received ────────────────────────────────────── */
+function _onRCOffer(payload) {
+  if (RC.inCall) {
+    /* Already in call — auto-decline */
+    STATE.privateChat.signalingChannel?.send({
+      type: 'broadcast', event: 'rc-call-decline', payload: {},
+    }).catch(() => {});
+    return;
+  }
+
+  /* Stash payload for accept handler */
+  RC._pendingOffer = payload;
+  RC.mode     = payload.mode ?? 'voice';
+  RC.isOfferer = false;
+
+  /* Show incoming call UI */
+  const nameEl = $('ric-name');
+  const typeEl = $('ric-type');
+  const avEl   = $('ric-avatar');
+  if (nameEl) nameEl.textContent = sanitizeHTML(payload.callerName ?? 'Peer');
+  if (typeEl) typeEl.textContent = RC.mode === 'video' ? 'Video call' : 'Voice call';
+  if (avEl && payload.callerRocket) avEl.innerHTML = renderRocketSVG(payload.callerRocket, 42);
+
+  const ric = $('room-incoming-call');
+  if (ric) { ric.hidden = false; ric.classList.add('ric--ring'); }
+}
+
+async function _acceptIncomingCall() {
+  const payload = RC._pendingOffer;
+  if (!payload) return;
+  RC._pendingOffer = null;
+  RC.inCall = true;
+
+  /* Hide incoming toast */
+  const ric = $('room-incoming-call');
+  if (ric) { ric.hidden = true; ric.classList.remove('ric--ring'); }
+
+  /* Get local media */
+  try {
+    RC.localStream = await navigator.mediaDevices.getUserMedia(
+      RC.mode === 'video'
+        ? { video: { facingMode: 'user', width: { ideal: 1280 } }, audio: true }
+        : { audio: true, video: false }
+    );
+  } catch (e) {
+    showToast(`Media access denied: ${e.message}`, 'error');
+    RC.inCall = false;
+    STATE.privateChat.signalingChannel?.send({
+      type: 'broadcast', event: 'rc-call-decline', payload: {},
+    }).catch(() => {});
+    return;
+  }
+
+  _showCallOverlay(RC.mode, 'Connecting…');
+  await _rcCreatePC();
+
+  await RC.pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+  /* Drain buffered ICE */
+  for (const c of RC.iceBuf) {
+    await RC.pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+  }
+  RC.iceBuf = [];
+
+  const answer = await RC.pc.createAnswer();
+  await RC.pc.setLocalDescription(answer);
+
+  STATE.privateChat.signalingChannel?.send({
+    type: 'broadcast', event: 'rc-call-answer',
+    payload: { sdp: RC.pc.localDescription },
+  }).catch(() => {});
+}
+
+function _declineIncomingCall() {
+  RC._pendingOffer = null;
+  const ric = $('room-incoming-call');
+  if (ric) { ric.hidden = true; ric.classList.remove('ric--ring'); }
+  STATE.privateChat.signalingChannel?.send({
+    type: 'broadcast', event: 'rc-call-decline', payload: {},
+  }).catch(() => {});
+}
+
+/* ─── Answer received by offerer ────────────────────────────────── */
+async function _onRCAnswer(payload) {
+  if (!payload?.sdp || !RC.isOfferer || !RC.pc) return;
+  if (RC.pc.signalingState === 'stable') return;
+  await RC.pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(e =>
+    console.warn('[RC] answer error:', e)
+  );
+  for (const c of RC.iceBuf) {
+    await RC.pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+  }
+  RC.iceBuf = [];
+}
+
+async function _onRCIce(payload) {
+  if (!payload?.candidate) return;
+  if (RC.pc?.remoteDescription) {
+    await RC.pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(() => {});
+  } else {
+    RC.iceBuf.push(payload.candidate);
+  }
+}
+
+function _onRCDecline() {
+  if (!RC.inCall && !RC._pendingOffer) return;
+  showToast('Call declined.', 'info');
+  _cleanupRoomCall(false);
+}
+
+function _onRCEnd() {
+  if (!RC.inCall) return;
+  _appendRoomSystemMsg('— Call ended —');
+  _cleanupRoomCall(false);
+}
+
+/* ─── RTCPeerConnection factory ─────────────────────────────────── */
+async function _rcCreatePC() {
+  if (RC.pc) { try { RC.pc.close(); } catch {} }
+  const pc = new RTCPeerConnection({ iceServers: RC_ICE });
+  RC.pc = pc;
+
+  /* Add local tracks */
+  if (RC.localStream) {
+    RC.localStream.getTracks().forEach(t => pc.addTrack(t, RC.localStream));
+  }
+
+  /* ICE candidate → signal */
+  pc.onicecandidate = e => {
+    if (!e.candidate || !STATE.privateChat.signalingChannel) return;
+    STATE.privateChat.signalingChannel.send({
+      type: 'broadcast', event: 'rc-call-ice',
+      payload: { candidate: e.candidate.toJSON() },
+    }).catch(() => {});
+  };
+
+  /* Remote track */
+  pc.ontrack = e => {
+    const remoteVideo = $('rco-remote-video');
+    if (remoteVideo && e.streams?.[0]) {
+      remoteVideo.srcObject = e.streams[0];
+    }
+  };
+
+  /* Connection state */
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    if (s === 'connected') {
+      _setRCStatus('Connected');
+      _startRCTimer();
+      /* Show local pip */
+      _rcAttachLocalVideo();
+    } else if (s === 'disconnected' || s === 'failed') {
+      _appendRoomSystemMsg('— Call disconnected —');
+      _cleanupRoomCall(false);
+    }
+  };
+}
+
+/* ─── Call overlay UI ───────────────────────────────────────────── */
+function _showCallOverlay(mode, status) {
+  const overlay  = $('room-call-overlay');
+  const videos   = $('rco-videos');
+  const voiceC   = $('rco-voice-center');
+  const switchBtn = $('rco-btn-switch-cam');
+  const camBtn    = $('rco-btn-cam');
+
+  if (!overlay) return;
+  overlay.hidden = false;
+  overlay.classList.add('rco--visible');
+
+  if (mode === 'video') {
+    if (videos)  videos.hidden  = false;
+    if (voiceC)  voiceC.hidden  = true;
+    if (switchBtn) switchBtn.hidden = false;
+    if (camBtn) camBtn.hidden = false;
+  } else {
+    if (videos)  videos.hidden  = true;
+    if (voiceC)  voiceC.hidden  = false;
+    if (switchBtn) switchBtn.hidden = true;
+    if (camBtn) camBtn.hidden = true;
+  }
+
+  /* Populate peer info in overlay */
+  const peer = STATE.privateChat.peerInfo;
+  _setEl('rco-vc-name', peer?.username ?? 'Peer');
+  _setEl('rco-vc-status', status);
+  _setEl('rco-remote-nv-name', peer?.username ?? 'Peer');
+
+  const vcAv = $('rco-vc-avatar');
+  const rnvAv = $('rco-remote-nv-avatar');
+  if (peer?.rocketConfig) {
+    if (vcAv)  vcAv.innerHTML  = renderRocketSVG(peer.rocketConfig, 60);
+    if (rnvAv) rnvAv.innerHTML = renderRocketSVG(peer.rocketConfig, 48);
+  }
+
+  /* Attach local video preview */
+  if (mode === 'video' && RC.localStream) {
+    _rcAttachLocalVideo();
+  }
+
+  /* Reset control states */
+  const muteBtn = $('rco-btn-mute');
+  if (muteBtn) { muteBtn.classList.remove('rco-btn--active'); muteBtn.setAttribute('aria-pressed','false'); }
+  const camBtnEl = $('rco-btn-cam');
+  if (camBtnEl) { camBtnEl.classList.remove('rco-btn--active'); camBtnEl.setAttribute('aria-pressed','false'); }
+}
+
+function _setRCStatus(text) {
+  _setEl('rco-vc-status', text);
+}
+
+function _rcAttachLocalVideo() {
+  const lv = $('rco-local-video');
+  if (lv && RC.localStream) lv.srcObject = RC.localStream;
+}
+
+/* ─── Timer ─────────────────────────────────────────────────────── */
+function _startRCTimer() {
+  const timerEl = $('rco-timer');
+  RC.timerSeconds = 0;
+  if (timerEl) timerEl.hidden = false;
+  clearInterval(RC.timerInterval);
+  RC.timerInterval = setInterval(() => {
+    RC.timerSeconds++;
+    const m = String(Math.floor(RC.timerSeconds / 60)).padStart(2, '0');
+    const s = String(RC.timerSeconds % 60).padStart(2, '0');
+    if (timerEl) timerEl.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+/* ─── Controls ──────────────────────────────────────────────────── */
+function _toggleRCMic() {
+  RC.localMicMuted = !RC.localMicMuted;
+  RC.localStream?.getAudioTracks().forEach(t => { t.enabled = !RC.localMicMuted; });
+  const btn = $('rco-btn-mute');
+  if (btn) {
+    btn.classList.toggle('rco-btn--active', RC.localMicMuted);
+    btn.setAttribute('aria-pressed', String(RC.localMicMuted));
+    btn.title = RC.localMicMuted ? 'Unmute' : 'Mute';
+  }
+}
+
+function _toggleRCCam() {
+  RC.localCamOff = !RC.localCamOff;
+  RC.localStream?.getVideoTracks().forEach(t => { t.enabled = !RC.localCamOff; });
+  const btn = $('rco-btn-cam');
+  if (btn) {
+    btn.classList.toggle('rco-btn--active', RC.localCamOff);
+    btn.setAttribute('aria-pressed', String(RC.localCamOff));
+  }
+  const lnv = $('rco-local-nv');
+  if (lnv) lnv.hidden = !RC.localCamOff;
+}
+
+async function _switchRCCam() {
+  if (!RC.localStream) return;
+  RC.camFacingUser = !RC.camFacingUser;
+  const newFacing = RC.camFacingUser ? 'user' : 'environment';
+  try {
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: newFacing },
+      audio: false,
+    });
+    const newTrack = newStream.getVideoTracks()[0];
+    const sender   = RC.pc?.getSenders().find(s => s.track?.kind === 'video');
+    if (sender) await sender.replaceTrack(newTrack);
+    /* Replace local track in stream */
+    RC.localStream.getVideoTracks().forEach(t => { t.stop(); RC.localStream.removeTrack(t); });
+    RC.localStream.addTrack(newTrack);
+    _rcAttachLocalVideo();
+  } catch (e) {
+    showToast('Could not switch camera.', 'warn');
+  }
+}
+
+function _endRoomCall() {
+  STATE.privateChat.signalingChannel?.send({
+    type: 'broadcast', event: 'rc-call-end', payload: {},
+  }).catch(() => {});
+  _appendRoomSystemMsg('— Call ended —');
+  _cleanupRoomCall(false);
+}
+
+/* ─── Cleanup ───────────────────────────────────────────────────── */
+function _cleanupRoomCall(silent) {
+  clearInterval(RC.timerInterval);
+  RC.timerInterval  = null;
+  RC.timerSeconds   = 0;
+
+  if (RC.localStream) {
+    RC.localStream.getTracks().forEach(t => t.stop());
+    RC.localStream = null;
+  }
+  if (RC.pc) { try { RC.pc.close(); } catch {} RC.pc = null; }
+
+  RC.inCall        = false;
+  RC.isOfferer     = false;
+  RC.iceBuf        = [];
+  RC.localCamOff   = false;
+  RC.localMicMuted = false;
+  RC._pendingOffer  = null;
+
+  /* Clear video elements */
+  const rv = $('rco-remote-video');
+  const lv = $('rco-local-video');
+  if (rv) rv.srcObject = null;
+  if (lv) lv.srcObject = null;
+
+  /* Hide overlay */
+  const overlay = $('room-call-overlay');
+  if (overlay) {
+    overlay.classList.remove('rco--visible');
+    setTimeout(() => { if (overlay) overlay.hidden = true; }, 350);
+  }
+
+  /* Hide incoming toast */
+  const ric = $('room-incoming-call');
+  if (ric) { ric.hidden = true; ric.classList.remove('ric--ring'); }
+
+  /* Hide timer */
+  const timerEl = $('rco-timer');
+  if (timerEl) { timerEl.hidden = true; timerEl.textContent = '00:00'; }
+}
+
+
 
 /* ═══════════════════════════════════════════════════════════════════════
    §20  CALL SYSTEM  — WebRTC mesh for voice/video (up to 4 peers)
