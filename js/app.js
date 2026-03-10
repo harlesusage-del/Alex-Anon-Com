@@ -1669,8 +1669,13 @@ function _initPrivateChatScreen() {
   }
 
   /* Wire existing chat actions */
-  _onclick('btn-export-chat', _handleExportChat);
-  _onclick('btn-clear-chat',  _handleClearChat);
+  _onclick('btn-export-chat', () => { _closeHamburger(); _handleExportChat(); });
+  _onclick('btn-clear-chat',  () => { _closeHamburger(); _handleClearChat(); });
+
+  /* Hamburger menu toggle */
+  _onclick('btn-chat-hamburger', _toggleHamburger);
+  /* Close hamburger when clicking outside */
+  document.addEventListener('pointerdown', _onHamburgerOutsideClick, { passive: true });
 
   /* Wire call buttons */
   _initRoomCallButtons();
@@ -1815,7 +1820,9 @@ async function _joinRoomChat(roomId, password) {
 
   /* ── Message handler ── */
   sigCh.on('broadcast', { event: 'room-msg' }, ({ payload }) => {
-    if (!payload?.id || !payload?.message) return;
+    /* Allow text (has .message), voice (has .voiceData), and file (has .fileData) */
+    if (!payload?.id) return;
+    if (!payload.message && !payload.voiceData && !payload.fileData) return;
     _onRoomIncomingMessage(payload);
   });
 
@@ -2371,6 +2378,31 @@ async function _copyField(elId, label) {
   showToast(ok ? `${label} copied!` : 'Copy failed.', ok ? 'success' : 'error');
 }
 
+/* ─── Hamburger panel helpers ───────────────────────────────────── */
+function _toggleHamburger() {
+  const panel = $('wa-chat-hamburger-panel');
+  const btn   = $('btn-chat-hamburger');
+  if (!panel) return;
+  const isOpen = !panel.hidden;
+  panel.hidden = isOpen;
+  if (btn) btn.setAttribute('aria-expanded', String(!isOpen));
+}
+
+function _closeHamburger() {
+  const panel = $('wa-chat-hamburger-panel');
+  const btn   = $('btn-chat-hamburger');
+  if (panel) panel.hidden = true;
+  if (btn)   btn.setAttribute('aria-expanded', 'false');
+}
+
+function _onHamburgerOutsideClick(e) {
+  const panel = $('wa-chat-hamburger-panel');
+  const btn   = $('btn-chat-hamburger');
+  if (!panel || panel.hidden) return;
+  if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+  _closeHamburger();
+}
+
 /* ─── Cleanup ───────────────────────────────────────────────────── */
 function _cleanupPrivateChat() {
   _cleanupRoomCall(true);
@@ -2385,6 +2417,9 @@ function _cleanupPrivateChat() {
   STATE.privateChat.peerInfo           = null;
   STATE.privateChat.iceCandidateBuffer = [];
   _roomPresence = {};
+  /* Close hamburger on cleanup */
+  _closeHamburger();
+  document.removeEventListener('pointerdown', _onHamburgerOutsideClick);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

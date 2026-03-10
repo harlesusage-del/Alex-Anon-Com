@@ -2352,13 +2352,140 @@ body:has(input:hover) .cursor-ring {
 /* Chat header */
 .wa-chat__header {
   display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: rgba(5, 13, 26, 0.96);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;   /* anchor for absolute hamburger panel */
+  z-index: 10;
+}
+
+/* Header single row — back + avatar + name + call + video + hamburger */
+.wa-chat__header-row1 {
+  display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: 0 var(--space-4);
   height: 56px;
+}
+
+/* ── Hamburger dropdown panel ── */
+.wa-chat__hamburger-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: var(--space-3);
+  width: 220px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45), var(--shadow-glow);
+  padding: var(--space-2) 0;
+  z-index: 50;
+  animation: hbg-pop 0.15s var(--transition-spring) both;
+}
+
+@keyframes hbg-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)  scale(1); }
+}
+
+/* Info rows (status + room id) */
+.hbg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+.hbg-row--status {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.hbg-row__icon {
+  width: 18px; height: 18px;
+  color: var(--color-text-muted);
   flex-shrink: 0;
-  background: rgba(5, 13, 26, 0.92);
-  border-bottom: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.hbg-row__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hbg-row__label {
+  font-family: var(--font-display);
+  font-size: 0.48rem;
+  letter-spacing: 0.18em;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+}
+
+.hbg-row__value {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Divider */
+.hbg-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-1) var(--space-3);
+}
+
+/* Action buttons inside hamburger */
+.hbg-action-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  border-radius: 0;
+}
+
+.hbg-action-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.hbg-action-btn--danger {
+  color: var(--color-red-dim);
+}
+
+.hbg-action-btn--danger:hover {
+  background: rgba(255, 77, 106, 0.10);
+  color: var(--color-red);
+}
+
+/* Hamburger button icon style */
+.wa-icon-btn--hamburger {
+  color: var(--color-text-muted);
+}
+
+.wa-icon-btn--hamburger:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+/* Status row inside hamburger */
+.wa-chat__hamburger-panel .wa-chat__status {
+  font-size: 0.75rem;
+  gap: var(--space-2);
 }
 
 .wa-chat__back-mobile {
@@ -5210,7 +5337,7 @@ body:has(input:hover) .cursor-ring {
   background: #071424;
   border-bottom: 1px solid rgba(74,158,255,0.18);
   position: relative;
-  z-index: 5;
+  z-index: 20;          /* above messages, below toasts */
 }
 
 /* Subtle bottom glow line — CSS only, no animation */
@@ -5226,7 +5353,7 @@ body:has(input:hover) .cursor-ring {
     transparent 100%);
 }
 
-/* Row 1: back + avatar + info + actions */
+/* Row 1: back + avatar + name + call + video + hamburger */
 .wa-chat__header-row1 {
   display: flex;
   align-items: center;
@@ -5236,33 +5363,16 @@ body:has(input:hover) .cursor-ring {
   flex-shrink: 0;
 }
 
-/* Row 2: room chip shown only on mobile below row 1 */
-.wa-chat__header-row2 {
-  display: none;
-  align-items: center;
-  padding: 2px var(--space-3) 6px;
-}
-
 @media (max-width: 699px) {
-  .wa-chat__header-row2 { display: flex; }
   .wa-chat__header-row1 .wa-chat__actions { gap: 2px; }
   .wa-chat__header-row1 .wa-icon-btn { width: 28px; height: 28px; }
   .wa-chat__header-row1 .wa-icon-btn svg { width: 13px; height: 13px; }
 }
 
 @media (min-width: 700px) {
-  .wa-chat__header {
-    flex-direction: row;
-    align-items: center;
-    height: 52px;
+  .wa-chat__header-row1 {
     padding: 0 var(--space-4);
     gap: var(--space-3);
-  }
-  .wa-chat__header-row1 {
-    flex: 1; height: 100%; padding: 0; gap: var(--space-3);
-  }
-  .wa-chat__header-row2 {
-    display: flex; align-items: center; padding: 0; flex-shrink: 0;
   }
 }
 
