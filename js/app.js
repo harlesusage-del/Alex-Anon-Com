@@ -65,7 +65,7 @@ const CONFIG = {
   ICE_RESTART_DELAY: 5000,   // ms  ICE restart on disconnect
 
   /* ── Limits ───────────────────────────────────────────────── */
-  MAX_CALL_PEERS:     3,     // max remote peers (4 total incl. local)
+  MAX_CALL_PEERS:     9,     // max remote peers (10 total incl. local)
   MSG_HISTORY_LIMIT: 200,    // max messages kept in DOM
 };
 
@@ -1511,11 +1511,17 @@ function _renderPrivateSidebar() {
   convs.forEach(conv => {
     const lastMsg = conv.messages.filter(m => m.type === 'msg').at(-1);
     const isActive = STATE.privateChat.peerToken === conv.roomId;
-    const preview  = lastMsg
-      ? sanitizeHTML(lastMsg.message).slice(0, 50) + (lastMsg.message.length > 50 ? '…' : '')
-      : 'No messages yet';
+    let preview = '';
+    if (lastMsg) {
+      if (lastMsg.msgType === 'voice') preview = '🎤 Voice note';
+      else if (lastMsg.msgType === 'file') preview = `📎 ${lastMsg.fileName || 'File'}`;
+      else preview = sanitizeHTML(lastMsg.message || '').slice(0, 50) + ((lastMsg.message || '').length > 50 ? '…' : '');
+    } else {
+      preview = 'No messages yet';
+    }
     const timeStr  = lastMsg ? formatTime(new Date(lastMsg.ts)) : '';
     const rktSvg   = conv.peerRocket ? renderRocketSVG(conv.peerRocket, 38) : '';
+    const isOnline = isActive && STATE.privateChat.connected;
 
     const item = document.createElement('div');
     item.className = 'wa-conv-item' + (isActive ? ' wa-conv-item--active' : '');
@@ -1524,6 +1530,7 @@ function _renderPrivateSidebar() {
     item.innerHTML = `
       <div class="wa-conv-item__avatar" aria-hidden="true">
         ${rktSvg || '<div class="wa-conv-item__avatar-placeholder"></div>'}
+        ${isOnline ? '<span class="wa-conv-item__online-dot" aria-hidden="true"></span>' : ''}
       </div>
       <div class="wa-conv-item__body">
         <div class="wa-conv-item__row1">
@@ -1531,8 +1538,23 @@ function _renderPrivateSidebar() {
           <span class="wa-conv-item__time">${timeStr}</span>
         </div>
         <span class="wa-conv-item__preview">${preview}</span>
-      </div>`;
-    item.addEventListener('click', () => _openRoomConv(conv.roomId));
+      </div>
+      <button class="wa-conv-item__delete" data-room="${conv.roomId}" type="button" aria-label="Delete room" title="Delete room">
+        <svg viewBox="0 0 14 14" fill="none" width="11" height="11" aria-hidden="true">
+          <path d="M2 3.5h10M5 3.5V2.5h4v1M3.5 3.5l.7 8h5.6l.7-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>`;
+
+    /* Click on item body → open */
+    item.querySelector('.wa-conv-item__body').addEventListener('click', () => _openRoomConv(conv.roomId));
+    item.querySelector('.wa-conv-item__avatar').addEventListener('click', () => _openRoomConv(conv.roomId));
+
+    /* Delete button */
+    item.querySelector('.wa-conv-item__delete').addEventListener('click', e => {
+      e.stopPropagation();
+      _deleteRoomFromSidebar(conv.roomId);
+    });
+
     list.insertBefore(item, empty);
   });
 }
@@ -1653,6 +1675,14 @@ function _initPrivateChatScreen() {
   /* Wire call buttons */
   _initRoomCallButtons();
   _setCallButtonsEnabled(STATE.privateChat.connected);
+
+  /* Wire file attachment */
+  _onclick('btn-attach-file', () => { if (!STATE.privateChat.connected) return; $('file-input-hidden')?.click(); });
+  const fileInput = $('file-input-hidden');
+  if (fileInput) fileInput.onchange = _handleFileAttachment;
+
+  /* Wire voice note */
+  _initVoiceNote();
 
   /* Send button + input */
   const oldSend = $('btn-private-send');
@@ -1988,6 +2018,47 @@ function _renderRoomBubble(msg, isOutgoing) {
   const item = document.createElement('div');
   item.className = `msg ${isOutgoing ? 'msg--outgoing' : 'msg--incoming'}`;
   item.setAttribute('role', 'listitem');
+
+  let bodyHTML = '';
+  const mt = msg.msgType;
+
+  if (mt === 'voice') {
+    /* Voice note bubble */
+    const dur = msg.duration || 0;
+    const durStr = `${Math.floor(dur/60)}:${String(dur%60).padStart(2,'0')}`;
+    const audioSrc = `data:${msg.voiceMime || 'audio/webm'};base64,${msg.voiceData}`;
+    bodyHTML = `
+      <div class="msg__voice-note">
+        <button class="vn-play-btn" aria-label="Play voice note" type="button">
+          <svg viewBox="0 0 16 16" fill="none" width="14" height="14" aria-hidden="true">
+            <path d="M5 3.5l8 4.5-8 4.5V3.5z" fill="currentColor"/>
+          </svg>
+        </button>
+        <div class="vn-waveform" aria-hidden="true">${_genWaveform()}</div>
+        <span class="vn-dur">${durStr}</span>
+        <audio class="vn-audio" src="${audioSrc}" preload="none"></audio>
+      </div>`;
+  } else if (mt === 'file') {
+    /* File attachment bubble */
+    const ext  = (msg.fileName || '').split('.').pop().toUpperCase().slice(0, 5);
+    const size  = msg.fileSize ? _formatFileSize(msg.fileSize) : '';
+    const blob  = _b64toBlob(msg.fileData, msg.fileMime || 'application/octet-stream');
+    const url   = URL.createObjectURL(blob);
+    bodyHTML = `
+      <a class="msg__file-attach" href="${url}" download="${sanitizeHTML(msg.fileName || 'file')}" aria-label="Download ${sanitizeHTML(msg.fileName || 'file')}">
+        <div class="fa-icon"><span class="fa-ext">${sanitizeHTML(ext)}</span></div>
+        <div class="fa-info">
+          <span class="fa-name">${sanitizeHTML(msg.fileName || 'file')}</span>
+          <span class="fa-size">${size}</span>
+        </div>
+        <svg class="fa-dl" viewBox="0 0 16 16" fill="none" width="14" height="14" aria-hidden="true">
+          <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>`;
+  } else {
+    bodyHTML = `<p class="msg__text">${sanitizeHTML(msg.message || '')}</p>`;
+  }
+
   item.innerHTML = `
     <div class="msg__avatar" aria-hidden="true"><div class="msg-rocket-mini">${rkt}</div></div>
     <div class="msg__bubble">
@@ -1995,11 +2066,54 @@ function _renderRoomBubble(msg, isOutgoing) {
         <span class="msg__username">${sanitizeHTML(msg.username)}</span>
         <time class="msg__time" datetime="${new Date(msg.ts).toISOString()}">${formatTime(new Date(msg.ts))}</time>
       </div>
-      <p class="msg__text">${sanitizeHTML(msg.message)}</p>
+      ${bodyHTML}
     </div>`;
+
+  /* Wire play button for voice notes */
+  if (mt === 'voice') {
+    const playBtn = item.querySelector('.vn-play-btn');
+    const audio   = item.querySelector('.vn-audio');
+    if (playBtn && audio) {
+      playBtn.onclick = () => {
+        if (audio.paused) {
+          document.querySelectorAll('.vn-audio').forEach(a => { if (a !== audio) a.pause(); });
+          audio.play().catch(() => {});
+          playBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><rect x="3" y="2" width="4" height="12" rx="1" fill="currentColor"/><rect x="9" y="2" width="4" height="12" rx="1" fill="currentColor"/></svg>`;
+        } else {
+          audio.pause();
+          playBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M5 3.5l8 4.5-8 4.5V3.5z" fill="currentColor"/></svg>`;
+        }
+      };
+      audio.onended = () => {
+        playBtn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" width="14" height="14"><path d="M5 3.5l8 4.5-8 4.5V3.5z" fill="currentColor"/></svg>`;
+      };
+    }
+  }
+
   el.appendChild(item);
   _pruneMessages(el);
   _scrollToBottom(el);
+}
+
+/* Waveform generator (fake bars for aesthetics) */
+function _genWaveform() {
+  return Array.from({ length: 20 }, (_, i) => {
+    const h = 4 + Math.round(Math.abs(Math.sin(i * 1.3 + 0.5)) * 14);
+    return `<span style="height:${h}px"></span>`;
+  }).join('');
+}
+
+function _formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function _b64toBlob(b64, mime) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
 }
 
 function _appendRoomSystemMsg(text) {
@@ -2022,6 +2136,19 @@ function _enablePrivateInput(enabled) {
     if (enabled) setTimeout(() => { try { input.focus(); } catch {} }, 150);
   }
   if (btnSend) btnSend.disabled = !enabled || !(input?.value?.trim());
+  _setAttachButtonsEnabled(enabled);
+}
+
+/* ─── Delete entire room from sidebar ───────────────────────────── */
+function _deleteRoomFromSidebar(roomId) {
+  /* If currently in this room, disconnect first */
+  if (STATE.privateChat.peerToken === roomId) {
+    _cleanupPrivateChat();
+    _showChatPanel(false);
+  }
+  _deleteRoomConv(roomId);
+  _renderPrivateSidebar();
+  showToast('Room deleted.', 'info');
 }
 
 /* ─── Export / clear ────────────────────────────────────────────── */
@@ -2054,6 +2181,185 @@ function _handleClearChat() {
   _appendRoomSystemMsg('— Conversation deleted —');
   _renderPrivateSidebar();
   showToast('Conversation deleted.', 'info');
+}
+
+/* ─── Voice Note system ─────────────────────────────────────────── */
+let _mediaRecorder   = null;
+let _recordChunks    = [];
+let _recordTimer     = null;
+let _recordSeconds   = 0;
+let _isRecording     = false;
+
+function _initVoiceNote() {
+  const voiceBtn   = $('btn-voice-note');
+  const cancelBtn  = $('btn-cancel-record');
+  if (!voiceBtn) return;
+
+  /* Touch + mouse hold to record */
+  const startRecord = async (e) => {
+    e.preventDefault();
+    if (!STATE.privateChat.connected || _isRecording) return;
+    await _startRecording();
+  };
+  const stopRecord = async (e) => {
+    e.preventDefault();
+    if (!_isRecording) return;
+    await _stopRecording(true); /* true = send */
+  };
+
+  voiceBtn.addEventListener('mousedown',  startRecord);
+  voiceBtn.addEventListener('touchstart', startRecord, { passive: false });
+  voiceBtn.addEventListener('mouseup',    stopRecord);
+  voiceBtn.addEventListener('touchend',   stopRecord);
+  voiceBtn.addEventListener('mouseleave', async (e) => { if (_isRecording) await _stopRecording(false); });
+
+  if (cancelBtn) cancelBtn.onclick = () => _stopRecording(false);
+}
+
+async function _startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _recordChunks = [];
+    _isRecording  = true;
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus' : 'audio/webm';
+
+    _mediaRecorder = new MediaRecorder(stream, { mimeType });
+    _mediaRecorder.ondataavailable = e => { if (e.data.size > 0) _recordChunks.push(e.data); };
+    _mediaRecorder.start(100);
+
+    /* Show recording indicator */
+    const voiceBtn    = $('btn-voice-note');
+    const recIndicator = $('recording-indicator');
+    const sendBtn     = $('btn-private-send');
+    if (voiceBtn)     voiceBtn.hidden    = true;
+    if (sendBtn)      sendBtn.hidden     = true;
+    if (recIndicator) recIndicator.hidden = false;
+
+    _recordSeconds = 0;
+    const timerEl = $('rec-timer');
+    _recordTimer = setInterval(() => {
+      _recordSeconds++;
+      if (timerEl) timerEl.textContent = `${Math.floor(_recordSeconds/60)}:${String(_recordSeconds%60).padStart(2,'0')}`;
+      /* Auto-stop at 2 minutes */
+      if (_recordSeconds >= 120) _stopRecording(true);
+    }, 1000);
+
+  } catch (e) {
+    showToast('Microphone access denied.', 'error');
+    _isRecording = false;
+  }
+}
+
+async function _stopRecording(doSend) {
+  if (!_mediaRecorder || !_isRecording) return;
+  _isRecording = false;
+  clearInterval(_recordTimer);
+
+  /* Stop stream tracks */
+  _mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+
+  await new Promise(resolve => {
+    _mediaRecorder.onstop = resolve;
+    _mediaRecorder.stop();
+  });
+
+  /* Reset UI */
+  const voiceBtn    = $('btn-voice-note');
+  const recIndicator = $('recording-indicator');
+  const sendBtn     = $('btn-private-send');
+  if (voiceBtn)     voiceBtn.hidden    = false;
+  if (sendBtn)      sendBtn.hidden     = false;
+  if (recIndicator) recIndicator.hidden = true;
+
+  if (!doSend || _recordSeconds < 1) { _recordChunks = []; return; }
+
+  const blob = new Blob(_recordChunks, { type: _mediaRecorder.mimeType || 'audio/webm' });
+  const duration = _recordSeconds;
+  _recordChunks = [];
+
+  /* Encode to base64 and send */
+  const reader = new FileReader();
+  reader.onload = () => {
+    const b64 = reader.result.split(',')[1];
+    _sendRoomVoiceNote(b64, duration, _mediaRecorder.mimeType || 'audio/webm');
+  };
+  reader.readAsDataURL(blob);
+}
+
+function _sendRoomVoiceNote(base64Data, durationSec, mimeType) {
+  const sigCh = STATE.privateChat.signalingChannel;
+  if (!sigCh || !STATE.privateChat.connected) return;
+
+  const msg = {
+    type:      'msg',
+    msgType:   'voice',
+    id:        genUUID(),
+    sessionId: _getSessionId(),
+    username:  STATE.identity.username,
+    rocketConfig: STATE.identity.rocketConfig,
+    voiceData: base64Data,
+    voiceMime: mimeType,
+    duration:  durationSec,
+    ts:        Date.now(),
+  };
+
+  sigCh.send({ type: 'broadcast', event: 'room-msg', payload: msg }).catch(() => {});
+  _appendRoomMessage(msg, true);
+}
+
+/* ─── File Attachment system ─────────────────────────────────────── */
+async function _handleFileAttachment(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  e.target.value = ''; /* reset so same file can be re-sent */
+
+  const sigCh = STATE.privateChat.signalingChannel;
+  if (!sigCh || !STATE.privateChat.connected) return;
+
+  /* Max 5MB per file */
+  const MAX_SIZE = 5 * 1024 * 1024;
+
+  for (const file of files.slice(0, 3)) { /* max 3 files at once */
+    if (file.size > MAX_SIZE) {
+      showToast(`${file.name}: file too large (max 5 MB).`, 'warn'); continue;
+    }
+
+    const b64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    }).catch(() => null);
+
+    if (!b64) { showToast(`Failed to read ${file.name}.`, 'error'); continue; }
+
+    const msg = {
+      type:      'msg',
+      msgType:   'file',
+      id:        genUUID(),
+      sessionId: _getSessionId(),
+      username:  STATE.identity.username,
+      rocketConfig: STATE.identity.rocketConfig,
+      fileData:  b64,
+      fileMime:  file.type,
+      fileName:  file.name,
+      fileSize:  file.size,
+      ts:        Date.now(),
+    };
+
+    sigCh.send({ type: 'broadcast', event: 'room-msg', payload: msg }).catch(() => {});
+    _appendRoomMessage(msg, true);
+  }
+}
+
+/* ─── Enable/disable attachment+voice buttons ───────────────────── */
+function _setAttachButtonsEnabled(enabled) {
+  const a = $('btn-attach-file');
+  const v = $('btn-voice-note');
+  if (a) a.disabled = !enabled;
+  if (v) v.disabled = !enabled;
 }
 
 /* ─── Copy helper ───────────────────────────────────────────────── */
@@ -3400,6 +3706,58 @@ function _pruneMessages(el) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   §22b  SHOOTING STARS & COSMIC BACKGROUND
+   ═══════════════════════════════════════════════════════════════════ */
+
+function _initShootingStars() {
+  const layer = $('shooting-stars-layer');
+  if (!layer) return;
+
+  /* ── Static twinkling stars ── */
+  const starCount = 80;
+  for (let i = 0; i < starCount; i++) {
+    const s  = document.createElement('div');
+    s.className = 'star';
+    const x  = Math.random() * 100;
+    const y  = Math.random() * 100;
+    const op = (0.2 + Math.random() * 0.6).toFixed(2);
+    const dur = (2 + Math.random() * 4).toFixed(1);
+    const del = (Math.random() * 5).toFixed(2);
+    const sz  = Math.random() > 0.85 ? '2.5px' : '1.5px';
+    s.style.cssText = `
+      left:${x}%; top:${y}%;
+      --tw-op:${op}; --tw-dur:${dur}s; --tw-del:${del}s;
+      width:${sz}; height:${sz};`;
+    layer.appendChild(s);
+  }
+
+  /* ── Shooting stars ── */
+  const shootData = [
+    { y:'8%',  dur:'2.8s', del:'0s',    rot:'-18deg', w:'130px' },
+    { y:'22%', dur:'3.2s', del:'3.5s',  rot:'-22deg', w:'90px'  },
+    { y:'45%', dur:'2.5s', del:'7s',    rot:'-15deg', w:'160px' },
+    { y:'65%', dur:'3.8s', del:'1.5s',  rot:'-25deg', w:'110px' },
+    { y:'80%', dur:'2.2s', del:'5s',    rot:'-20deg', w:'80px'  },
+    { y:'15%', dur:'4.0s', del:'9s',    rot:'-28deg', w:'140px' },
+    { y:'55%', dur:'3.0s', del:'12s',   rot:'-12deg', w:'100px' },
+    { y:'35%', dur:'2.7s', del:'6s',    rot:'-30deg', w:'120px' },
+    { y:'70%', dur:'3.5s', del:'15s',   rot:'-18deg', w:'90px'  },
+    { y:'90%', dur:'2.4s', del:'18s',   rot:'-24deg', w:'150px' },
+  ];
+
+  shootData.forEach(d => {
+    const ss = document.createElement('div');
+    ss.className = 'shooting-star';
+    ss.style.cssText = `
+      --ss-y:${d.y}; --ss-dur:${d.dur}; --ss-del:${d.del};
+      --ss-rot:${d.rot}; --ss-w:${d.w};
+      top:${d.y};`;
+    layer.appendChild(ss);
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
    §23  APP BOOT
    ───────────────────────────────────────────────────────────────────
    Everything initialised once when DOM is ready.
@@ -3409,6 +3767,7 @@ function _boot() {
   /* ── Core non-screen systems ── */
   initCursor();
   _initRecoveryModal();
+  _initShootingStars();    /* ← global shooting stars */
 
   /* ── Keyboard accessibility for modals ── */
   document.addEventListener('keydown', e => {

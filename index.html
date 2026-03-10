@@ -47,6 +47,9 @@
 
 <body>
 
+<!-- ── GLOBAL SHOOTING STARS LAYER (behind everything) ── -->
+<div class="shooting-stars-layer" id="shooting-stars-layer" aria-hidden="true"></div>
+
 <!-- ██████████████████████████████████████████████████████████████████
      APP ROOT — All screens live here. JS controls visibility.
      Active screen carries class  .screen--active
@@ -1023,49 +1026,55 @@
       <!-- ── ACTIVE CHAT VIEW ── -->
       <div class="wa-chat" id="wa-chat-view" hidden>
 
-        <!-- Chat top bar -->
+        <!-- Chat top bar — compact 2-row mobile-friendly layout -->
         <header class="wa-chat__header">
-          <button class="wa-chat__back-mobile" id="btn-wa-back-mobile" type="button" aria-label="Back to rooms">
-            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </button>
-          <div class="wa-chat__peer-avatar" id="wa-peer-avatar" aria-hidden="true"></div>
-          <div class="wa-chat__peer-info">
-            <span class="wa-chat__peer-name" id="private-peer-name">—</span>
-            <div class="wa-chat__status" id="private-connection-status" role="status" aria-live="polite">
-              <span class="conn-dot conn-dot--idle" aria-hidden="true"></span>
-              <span class="conn-text">Waiting for peer…</span>
+          <!-- Row 1: back + avatar + info + actions -->
+          <div class="wa-chat__header-row1">
+            <button class="wa-chat__back-mobile" id="btn-wa-back-mobile" type="button" aria-label="Back to rooms">
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <div class="wa-chat__peer-avatar" id="wa-peer-avatar" aria-hidden="true"></div>
+            <div class="wa-chat__peer-info">
+              <span class="wa-chat__peer-name" id="private-peer-name">—</span>
+              <div class="wa-chat__status" id="private-connection-status" role="status" aria-live="polite">
+                <span class="conn-dot conn-dot--idle" aria-hidden="true"></span>
+                <span class="conn-text">Waiting for peer…</span>
+              </div>
+            </div>
+            <div class="wa-chat__actions">
+              <!-- Voice call -->
+              <button class="wa-icon-btn wa-icon-btn--call" id="btn-room-voice-call" type="button" aria-label="Voice call" title="Voice call" disabled>
+                <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M3.5 2.5h3l1.5 3.5-2 1.2A9 9 0 009.8 12l1.2-2 3.5 1.5v3C14.5 15.3 10 16 6 12S1.7 3.5 3.5 2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <!-- Video call -->
+              <button class="wa-icon-btn wa-icon-btn--call" id="btn-room-video-call" type="button" aria-label="Video call" title="Video call" disabled>
+                <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <rect x="1" y="4" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/>
+                  <path d="M12 7.5l5-2.5v8l-5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button class="wa-icon-btn" id="btn-export-chat" type="button" aria-label="Export" title="Export">
+                <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M9 2v9M6 8l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <button class="wa-icon-btn wa-icon-btn--danger" id="btn-clear-chat" type="button" aria-label="Delete history" title="Delete history">
+                <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M3 5h12M7 5V3.5h4V5M5 5l.8 10h6.4L13 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M7.5 8v4M10.5 8v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+              </button>
             </div>
           </div>
-          <div class="wa-chat__room-chip">
-            <span class="wa-room-chip-label">ROOM</span>
-            <span class="wa-room-chip-id" id="private-room-id-display">—</span>
-          </div>
-          <div class="wa-chat__actions">
-            <!-- Voice call -->
-            <button class="wa-icon-btn wa-icon-btn--call" id="btn-room-voice-call" type="button" aria-label="Voice call" title="Voice call" disabled>
-              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path d="M3.5 2.5h3l1.5 3.5-2 1.2A9 9 0 009.8 12l1.2-2 3.5 1.5v3C14.5 15.3 10 16 6 12S1.7 3.5 3.5 2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-              </svg>
-            </button>
-            <!-- Video call -->
-            <button class="wa-icon-btn wa-icon-btn--call" id="btn-room-video-call" type="button" aria-label="Video call" title="Video call" disabled>
-              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <rect x="1" y="4" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/>
-                <path d="M12 7.5l5-2.5v8l-5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-              </svg>
-            </button>
-            <button class="wa-icon-btn" id="btn-export-chat" type="button" aria-label="Export conversation" title="Export">
-              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path d="M9 2v9M6 8l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M3 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <button class="wa-icon-btn wa-icon-btn--danger" id="btn-clear-chat" type="button" aria-label="Delete chat history" title="Clear history">
-              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path d="M3 5h12M7 5V3.5h4V5M5 5l.8 10h6.4L13 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M7.5 8v4M10.5 8v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-              </svg>
-            </button>
+          <!-- Row 2: room chip (only on mobile, inline on desktop) -->
+          <div class="wa-chat__header-row2">
+            <div class="wa-chat__room-chip">
+              <span class="wa-room-chip-label">ROOM</span>
+              <span class="wa-room-chip-id" id="private-room-id-display">—</span>
+            </div>
           </div>
         </header>
 
@@ -1173,19 +1182,47 @@
           </div>
         </div>
 
-        <!-- Input bar -->
+        <!-- Input bar — upgraded with voice note + file attachment -->
         <div class="wa-input-bar" id="private-input-area">
+          <!-- Attach file button -->
+          <button class="wa-attach-btn" id="btn-attach-file" type="button" aria-label="Attach file" title="Attach file" disabled>
+            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M15.5 8.5l-7 7a4.5 4.5 0 01-6.36-6.36l7-7a3 3 0 014.24 4.24l-7.07 7.07a1.5 1.5 0 01-2.12-2.12L11 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <!-- Hidden file input -->
+          <input type="file" id="file-input-hidden" style="display:none" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.png,.jpg,.jpeg,.gif,.webp" multiple/>
+
+          <!-- Textarea grows to fill -->
           <div class="wa-input-bar__my-avatar" id="private-input-avatar" aria-hidden="true"></div>
           <textarea
             id="private-chat-input"
             class="wa-input-bar__textarea"
             placeholder="Message…"
             rows="1"
-            maxlength="1000"
+            maxlength="4000"
             aria-label="Type a message"
             autocomplete="off" autocorrect="off" spellcheck="true"
             disabled
           ></textarea>
+
+          <!-- Voice note button (shown when textarea is empty) -->
+          <button class="wa-voice-btn" id="btn-voice-note" type="button" aria-label="Hold to record voice note" title="Voice note" disabled>
+            <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <rect x="6" y="1" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M3 9c0 3.31 2.69 6 6 6s6-2.69 6-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M9 15v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <!-- Voice recording indicator (hidden by default) -->
+          <div class="wa-recording-indicator" id="recording-indicator" hidden>
+            <div class="rec-dot" aria-hidden="true"></div>
+            <span class="rec-timer" id="rec-timer">0:00</span>
+            <button class="rec-cancel" id="btn-cancel-record" type="button" aria-label="Cancel recording">✕</button>
+          </div>
+
+          <!-- Send button -->
           <button class="wa-send-btn" id="btn-private-send" type="button" aria-label="Send" disabled>
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="M18 10L3 3.5L6 10L3 16.5L18 10Z" fill="currentColor"/>
