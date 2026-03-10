@@ -1719,6 +1719,13 @@ async function _connectPrivatePeer(peerToken) {
     /* Offerer sends offer immediately upon subscribing */
     if (STATE.privateChat.isOfferer) {
       await _p2pCreateOffer();
+
+      /* Retry offer after 4s in case answerer subscribes after us */
+      setTimeout(async () => {
+        if (!STATE.privateChat.connected && STATE.privateChat.roomId === roomId) {
+          await _p2pCreateOffer();
+        }
+      }, 4000);
     }
   });
 }
@@ -1728,12 +1735,26 @@ async function _onP2PHello(payload) {
   if (!payload?.token) return;
   _onP2PMeta(payload); // update name/avatar right away
 
+  const sigCh  = STATE.privateChat.signalingChannel;
+  const myToken = STATE.identity?.token;
+
   if (STATE.privateChat.isOfferer) {
     const pc = STATE.privateChat.peerConnection;
     const st = pc?.connectionState;
     /* Only create a new offer if no live connection */
-    if (!pc || st === 'failed' || st === 'closed' || st === 'disconnected') {
+    if (!pc || st === 'failed' || st === 'closed' || st === 'disconnected' || st === 'new') {
       await _p2pCreateOffer();
+    }
+  } else {
+    /* Answerer: reply with our own hello so offerer knows we are ready */
+    if (sigCh && myToken) {
+      const meta = {
+        token:        myToken,
+        username:     STATE.identity.username,
+        rocketId:     STATE.identity.rocketId,
+        rocketConfig: STATE.identity.rocketConfig,
+      };
+      await sigCh.send({ type: 'broadcast', event: 'p2p-hello', payload: meta }).catch(() => {});
     }
   }
 }
@@ -1773,7 +1794,8 @@ function _createPC() {
 async function _p2pCreateOffer() {
   /* Avoid duplicate offers if already in progress */
   const ex = STATE.privateChat.peerConnection;
-  if (ex && ex.connectionState !== 'failed' && ex.connectionState !== 'closed') return;
+  const badStates = ['failed', 'closed', 'disconnected', 'new'];
+  if (ex && !badStates.includes(ex.connectionState)) return;
 
   const pc = _createPC();
   STATE.privateChat.peerConnection = pc;
