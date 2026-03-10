@@ -1402,50 +1402,49 @@ function _cleanupChat() {
   clearTimeout(STATE.chat.typingTimer);
 }
 /* ═══════════════════════════════════════════════════════════════════════
-   §19  PRIVATE CHAT  — WebRTC DataChannel + Supabase signaling
+   §19  PRIVATE CHAT  — Room-based · Supabase Realtime broadcast
    ───────────────────────────────────────────────────────────────────
-   FAST-PAIR FIX:
-     Old bug: only offerer sent offer on SUBSCRIBED. If peer subscribed
-     first, they'd wait forever. Fix: every subscriber broadcasts
-     "p2p-hello". When offerer receives p2p-hello it (re)sends the offer
-     immediately. Both sides also re-announce meta on hello so peer
-     name/avatar resolves instantly.
-
-   PERSISTENCE: conversations stored in localStorage per peer-token pair.
+   Architecture (simple & reliable):
+     - One user generates Room ID + 6-digit password
+     - Other user enters Room ID + password to join
+     - Max 2 users per room (enforced via presence tracking)
+     - Messages sent as Supabase Realtime broadcast
+     - History persisted in localStorage per room (never auto-cleared)
+     - Only manual delete by user removes history
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ─── localStorage helpers ─────────────────────────────────────── */
-const P2P_KEY_PREFIX = 'alex_conv_';
+/* ─── localStorage helpers (per-room) ──────────────────────────── */
+const ROOM_KEY_PREFIX = 'alex_room_';
 
-function _convKey(peerToken) {
-  return P2P_KEY_PREFIX + peerToken.replace(/\W/g, '');
+function _roomStorageKey(roomId) {
+  return ROOM_KEY_PREFIX + String(roomId).replace(/\W/g, '');
 }
 
-function _loadConv(peerToken) {
+function _loadRoomConv(roomId) {
   try {
-    const raw = localStorage.getItem(_convKey(peerToken));
+    const raw = localStorage.getItem(_roomStorageKey(roomId));
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { peerToken, peerName: '', peerRocket: null, messages: [] };
+  return { roomId, roomName: roomId, peerName: '', peerRocket: null, messages: [] };
 }
 
-function _saveConv(conv) {
+function _saveRoomConv(conv) {
   try {
-    if (conv.messages.length > 600) conv.messages = conv.messages.slice(-600);
-    localStorage.setItem(_convKey(conv.peerToken), JSON.stringify(conv));
+    if (conv.messages.length > 800) conv.messages = conv.messages.slice(-800);
+    localStorage.setItem(_roomStorageKey(conv.roomId), JSON.stringify(conv));
   } catch {}
 }
 
-function _deleteConv(peerToken) {
-  try { localStorage.removeItem(_convKey(peerToken)); } catch {}
+function _deleteRoomConv(roomId) {
+  try { localStorage.removeItem(_roomStorageKey(roomId)); } catch {}
 }
 
-function _allConvs() {
+function _allRoomConvs() {
   const out = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(P2P_KEY_PREFIX)) {
+      if (k && k.startsWith(ROOM_KEY_PREFIX)) {
         try { out.push(JSON.parse(localStorage.getItem(k))); } catch {}
       }
     }
@@ -1457,20 +1456,61 @@ function _allConvs() {
   });
 }
 
-/* ─── Sidebar rendering ──────────────────────────────────────────── */
-function _renderSidebar() {
+/* ─── Room ID / password generators ────────────────────────────── */
+function _generateRoomId() {
+  /* Format: ALEX-XXXX-XXXX (readable, unambiguous chars) */
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = 'ALEX';
+  for (let i = 0; i < 2; i++) {
+    id += '-';
+    for (let j = 0; j < 4; j++) id += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return id;
+}
+
+function _generateRoomPassword() {
+  /* 6-digit numeric PIN */
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+/* canonical channel name: hash of roomId+password so it's private */
+async function _roomChannelName(roomId, password) {
+  const h = await sha256(`${roomId}:${password}:alex_room_v2`);
+  return 'room_' + h.slice(0, 24);
+}
+
+/* ─── App-level private chat state (extended) ───────────────────── */
+/* We reuse STATE.privateChat fields but repurpose some: */
+/*   peerToken     → active roomId                              */
+/*   roomId        → Supabase channel name (hash)              */
+/*   isOfferer     → not used                                   */
+/*   peerInfo      → { username, rocketConfig } of peer        */
+/*   connected     → true when peer also joined                 */
+
+/* ─── Presence tracking ─────────────────────────────────────────── */
+let _roomPresence = {};   // sessionId → { username, rocketId, rocketConfig }
+let _mySessionId  = null; // unique per-tab session
+
+function _getSessionId() {
+  if (!_mySessionId) {
+    _mySessionId = 'sess_' + genUUID().replace(/-/g, '').slice(0, 12);
+  }
+  return _mySessionId;
+}
+
+/* ─── Sidebar rendering ─────────────────────────────────────────── */
+function _renderPrivateSidebar() {
   const list  = $('wa-conv-list');
   const empty = $('wa-conv-empty');
   if (!list) return;
 
   list.querySelectorAll('.wa-conv-item').forEach(el => el.remove());
-
-  const convs = _allConvs();
+  const convs = _allRoomConvs();
   if (empty) empty.style.display = convs.length ? 'none' : '';
 
   convs.forEach(conv => {
     const lastMsg = conv.messages.filter(m => m.type === 'msg').at(-1);
-    const isActive = STATE.privateChat.peerToken === conv.peerToken;
+    const isActive = STATE.privateChat.peerToken === conv.roomId;
     const preview  = lastMsg
       ? sanitizeHTML(lastMsg.message).slice(0, 50) + (lastMsg.message.length > 50 ? '…' : '')
       : 'No messages yet';
@@ -1480,29 +1520,57 @@ function _renderSidebar() {
     const item = document.createElement('div');
     item.className = 'wa-conv-item' + (isActive ? ' wa-conv-item--active' : '');
     item.setAttribute('role', 'listitem');
-    item.dataset.token = conv.peerToken;
+    item.dataset.roomId = conv.roomId;
     item.innerHTML = `
       <div class="wa-conv-item__avatar" aria-hidden="true">
         ${rktSvg || '<div class="wa-conv-item__avatar-placeholder"></div>'}
       </div>
       <div class="wa-conv-item__body">
         <div class="wa-conv-item__row1">
-          <span class="wa-conv-item__name">${sanitizeHTML(conv.peerName || 'Unknown')}</span>
+          <span class="wa-conv-item__name">${sanitizeHTML(conv.peerName || conv.roomId)}</span>
           <span class="wa-conv-item__time">${timeStr}</span>
         </div>
         <span class="wa-conv-item__preview">${preview}</span>
       </div>`;
-    item.addEventListener('click', () => _openConv(conv.peerToken));
+    item.addEventListener('click', () => _openRoomConv(conv.roomId));
     list.insertBefore(item, empty);
   });
 }
 
-function _setActiveSidebarItem(peerToken) {
+function _setActiveSidebarItem(roomId) {
   document.querySelectorAll('.wa-conv-item').forEach(el => {
-    el.classList.toggle('wa-conv-item--active', el.dataset.token === peerToken);
+    el.classList.toggle('wa-conv-item--active', el.dataset.roomId === roomId);
   });
 }
 
+/* Open an existing stored room (re-connects to channel) */
+function _openRoomConv(roomId) {
+  /* We need password to reconnect — prompt for it or use stored */
+  const conv = _loadRoomConv(roomId);
+  if (conv._password) {
+    /* Auto-reconnect if password cached */
+    _joinRoomChat(roomId, conv._password);
+  } else {
+    /* Ask user to re-enter password */
+    _showRejoinPanel(roomId);
+  }
+}
+
+function _showRejoinPanel(roomId) {
+  const welcome = $('wa-welcome');
+  if (!welcome) return;
+  _showChatPanel(false);
+  const roomIdEl = $('room-join-id');
+  if (roomIdEl) roomIdEl.value = roomId;
+  /* Switch to join tab */
+  _setRoomTab('join');
+  setTimeout(() => {
+    const passEl = $('room-join-pass');
+    if (passEl) passEl.focus();
+  }, 100);
+}
+
+/* Show/hide chat vs welcome panel */
 function _showChatPanel(show) {
   const welcome = $('wa-welcome');
   const chat    = $('wa-chat-view');
@@ -1512,8 +1580,7 @@ function _showChatPanel(show) {
 
 /* ─── Screen init ──────────────────────────────────────────────── */
 function _initPrivateChatScreen() {
-
-  /* Back to dashboard — keep connection alive */
+  /* Back to dashboard */
   _onclick('btn-back-from-private', () => showScreen('screen-dashboard'));
 
   /* Mobile: back to sidebar */
@@ -1527,77 +1594,65 @@ function _initPrivateChatScreen() {
   /* New chat button */
   _onclick('btn-wa-new-chat', () => {
     _showChatPanel(false);
-    const ti = $('private-token-input');
-    if (ti) { ti.value = ''; setTimeout(() => { try { ti.focus(); } catch {} }, 100); }
-    const err = $('private-token-error');
-    if (err) err.textContent = '';
-    // On mobile, switch panel
-    const sidebar = $('wa-sidebar');
-    const main    = $('wa-main');
+    const welcome = $('wa-welcome');
+    if (welcome) welcome.hidden = false;
     if (window.innerWidth < 700) {
+      const sidebar = $('wa-sidebar');
+      const main    = $('wa-main');
       if (sidebar) sidebar.classList.add('wa-sidebar--hidden');
       if (main)    main.classList.add('wa-main--active');
     }
   });
 
+  /* Tab switching */
+  _onclick('room-tab-create', () => _setRoomTab('create'));
+  _onclick('room-tab-join',   () => _setRoomTab('join'));
+
+  /* Generate button */
+  _onclick('btn-generate-room', _handleGenerateRoom);
+
+  /* Create room (after generating) */
+  _onclick('btn-create-room', _handleCreateRoom);
+
+  /* Join room */
+  _onclick('btn-join-room', _handleJoinRoom);
+
+  /* Enter key on join inputs */
+  const passEl = $('room-join-pass');
+  if (passEl) passEl.onkeydown = e => { if (e.key === 'Enter') _handleJoinRoom(); };
+  const idEl   = $('room-join-id');
+  if (idEl)   idEl.onkeydown   = e => { if (e.key === 'Enter') passEl?.focus(); };
+
+  /* Copy room ID / password */
+  _onclick('btn-copy-room-id',   () => _copyField('generated-room-id',   'Room ID'));
+  _onclick('btn-copy-room-pass', () => _copyField('generated-room-pass', 'Password'));
+
   /* Populate my identity */
   if (STATE.identity) {
-    _setEl('private-my-token-display', STATE.identity.token);
     _setEl('wa-my-name', STATE.identity.username);
     const myAv = $('wa-my-avatar');
     if (myAv) myAv.innerHTML = renderRocketSVG(STATE.identity.rocketConfig, 38);
-    const inputAv = $('private-input-avatar');
-    if (inputAv) inputAv.innerHTML = renderRocketSVG(STATE.identity.rocketConfig, 28);
   }
 
-  /* Copy my ID */
-  _onclick('btn-copy-my-token', async () => {
-    if (!STATE.identity) return;
-    const ok = await copyToClipboard(STATE.identity.token);
-    showToast(ok ? 'Chat ID copied! Share it with your peer.' : 'Copy failed.', ok ? 'success' : 'error');
-  });
-
   /* Render conversation list */
-  _renderSidebar();
+  _renderPrivateSidebar();
 
-  /* Restore active chat state if already connected */
+  /* Restore active chat if still connected */
   if (STATE.privateChat.connected && STATE.privateChat.peerToken) {
     _showChatPanel(true);
-    _rehydrateMessages(STATE.privateChat.peerToken);
+    _rehydrateRoomMessages(STATE.privateChat.peerToken);
     _setActiveSidebarItem(STATE.privateChat.peerToken);
   } else {
     _showChatPanel(false);
   }
 
-  /* Connect form */
-  const tokenInput = $('private-token-input');
-  const errorEl    = $('private-token-error');
+  /* Wire existing chat actions */
+  _onclick('btn-export-chat', _handleExportChat);
+  _onclick('btn-clear-chat',  _handleClearChat);
 
-  const doConnect = () => {
-    const raw  = (tokenInput?.value ?? '').trim();
-    const full = raw.startsWith('u_') ? raw : (raw.length >= 8 ? 'u_' + raw : raw);
-    if (!full.startsWith('u_') || full.length < 10) {
-      if (errorEl) errorEl.textContent = 'Enter a valid Chat ID (starts with u_).';
-      return;
-    }
-    if (full === STATE.identity?.token) {
-      if (errorEl) errorEl.textContent = 'That is your own Chat ID.';
-      return;
-    }
-    if (errorEl) errorEl.textContent = '';
-    _connectPrivatePeer(full);
-  };
-
-  const oldConn = $('btn-connect-peer');
-  if (oldConn) { const f = oldConn.cloneNode(true); oldConn.replaceWith(f); f.onclick = doConnect; }
-  if (tokenInput) {
-    tokenInput.onkeydown = e => { if (e.key === 'Enter') doConnect(); };
-    setTimeout(() => { try { tokenInput.focus(); } catch {} }, 150);
-  }
-
-  /* Send button — clone first, then wire oninput */
+  /* Send button + input */
   const oldSend = $('btn-private-send');
-  if (oldSend) { const f = oldSend.cloneNode(true); oldSend.replaceWith(f); f.onclick = _sendPrivateMessage; }
+  if (oldSend) { const f = oldSend.cloneNode(true); oldSend.replaceWith(f); f.onclick = _sendRoomMessage; }
 
   const privInput = $('private-chat-input');
   if (privInput) {
@@ -1605,350 +1660,317 @@ function _initPrivateChatScreen() {
       autoResizeTextarea(privInput);
       const btn = $('btn-private-send');
       if (btn) btn.disabled = !privInput.value.trim() || !STATE.privateChat.connected;
-      _onPrivateTyping();
+      _onRoomTyping();
     };
     privInput.onkeydown = e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendPrivateMessage(); }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendRoomMessage(); }
     };
   }
-
-  /* Export chat */
-  _onclick('btn-export-chat', () => {
-    const pt = STATE.privateChat.peerToken;
-    if (!pt) return;
-    const conv  = _loadConv(pt);
-    const lines = conv.messages
-      .filter(m => m.type === 'msg')
-      .map(m => `[${new Date(m.ts).toLocaleString()}] ${m.username}: ${m.message}`)
-      .join('\n');
-    const blob = new Blob([lines || '(no messages)'], { type: 'text/plain' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `chat-${conv.peerName || 'peer'}-${Date.now()}.txt`;
-    a.click(); URL.revokeObjectURL(url);
-    showToast('Chat exported.', 'success');
-  });
-
-  /* Delete / clear chat */
-  _onclick('btn-clear-chat', () => {
-    const pt = STATE.privateChat.peerToken;
-    if (!pt) return;
-    const conv = _loadConv(pt);
-    conv.messages = [];
-    _saveConv(conv);
-    const msgEl = $('private-messages');
-    if (msgEl) msgEl.innerHTML = '';
-    _appendSystemMsg('— Conversation deleted —');
-    _renderSidebar();
-    showToast('Conversation deleted.', 'info');
-  });
 }
 
-/* Reload stored messages into DOM without duplicating */
-function _rehydrateMessages(peerToken) {
-  const msgEl = $('private-messages');
-  if (!msgEl) return;
-  msgEl.innerHTML = '';
-  const conv = _loadConv(peerToken);
-  conv.messages.filter(m => m.type === 'msg').forEach(m => {
-    const isOut = m.username === STATE.identity?.username;
-    _renderMsgBubble(m, isOut);
-  });
-  setTimeout(() => _scrollToBottom(msgEl), 40);
+/* ─── Tab system ────────────────────────────────────────────────── */
+function _setRoomTab(tab) {
+  const createTab  = $('room-tab-create');
+  const joinTab    = $('room-tab-join');
+  const createPanel = $('room-panel-create');
+  const joinPanel   = $('room-panel-join');
+
+  if (createTab) createTab.classList.toggle('room-tab--active', tab === 'create');
+  if (joinTab)   joinTab.classList.toggle('room-tab--active',   tab === 'join');
+  if (createPanel) createPanel.hidden = tab !== 'create';
+  if (joinPanel)   joinPanel.hidden   = tab !== 'join';
 }
 
-/* ─── Connection ─────────────────────────────────────────────────── */
-async function _connectPrivatePeer(peerToken) {
+/* ─── Generate + Create flow ────────────────────────────────────── */
+function _handleGenerateRoom() {
+  const newId   = _generateRoomId();
+  const newPass = _generateRoomPassword();
+
+  const idEl   = $('generated-room-id');
+  const passEl = $('generated-room-pass');
+  const boxEl  = $('generated-room-box');
+  const createBtn = $('btn-create-room');
+
+  if (idEl)   idEl.textContent   = newId;
+  if (passEl) passEl.textContent = newPass;
+  if (boxEl)  { boxEl.hidden = false; boxEl.classList.add('room-box--reveal'); }
+  if (createBtn) {
+    createBtn.dataset.roomId   = newId;
+    createBtn.dataset.roomPass = newPass;
+    createBtn.hidden = false;
+  }
+}
+
+async function _handleCreateRoom() {
+  const btn  = $('btn-create-room');
+  if (!btn) return;
+  const roomId   = btn.dataset.roomId;
+  const password = btn.dataset.roomPass;
+  if (!roomId || !password) return;
+  await _joinRoomChat(roomId, password);
+}
+
+/* ─── Join flow ─────────────────────────────────────────────────── */
+async function _handleJoinRoom() {
+  const idEl   = $('room-join-id');
+  const passEl = $('room-join-pass');
+  const errEl  = $('room-join-error');
+
+  const roomId   = (idEl?.value ?? '').trim().toUpperCase();
+  const password = (passEl?.value ?? '').trim();
+
+  if (!roomId) {
+    if (errEl) errEl.textContent = 'Enter a Room ID.';
+    return;
+  }
+  if (!/^\d{6}$/.test(password)) {
+    if (errEl) errEl.textContent = 'Password must be exactly 6 digits.';
+    return;
+  }
+  if (errEl) errEl.textContent = '';
+
+  await _joinRoomChat(roomId, password);
+}
+
+/* ─── Core: join / connect to a room ───────────────────────────── */
+async function _joinRoomChat(roomId, password) {
   if (!STATE.supabase) {
     showToast('Supabase not configured.', 'error', 6000);
     return;
   }
 
-  /* Already connected to same peer → just show */
-  if (STATE.privateChat.peerToken === peerToken && STATE.privateChat.connected) {
-    _activateChatUI(peerToken);
+  /* Cleanup previous if different room */
+  if (STATE.privateChat.peerToken !== roomId) {
+    _cleanupPrivateChat();
+  } else if (STATE.privateChat.connected) {
+    _activateRoomUI(roomId);
     return;
   }
 
-  _cleanupPrivateChat();
-  STATE.privateChat.peerToken = peerToken;
+  STATE.privateChat.peerToken = roomId;
 
-  const myToken = STATE.identity.token;
-  const roomId  = (await sha256([myToken, peerToken].sort().join('|') + '_alex_p2p_v1_')).slice(0, 16);
-  STATE.privateChat.roomId    = roomId;
-  STATE.privateChat.isOfferer = myToken < peerToken;
+  /* Persist password encrypted-ish (just base64, for convenience not security) */
+  const conv = _loadRoomConv(roomId);
+  conv._password = password;
+  _saveRoomConv(conv);
 
-  /* Show chat panel with history immediately */
-  _activateChatUI(peerToken);
-  _setConnBadge('private-connection-status', 'connecting', 'Connecting…');
-  _appendSystemMsg('— Connecting… share your Chat ID if peer isn\'t online yet —');
+  const channelName = await _roomChannelName(roomId, password);
+  STATE.privateChat.roomId = channelName;
 
-  /* Supabase signaling channel */
-  const sigCh = STATE.supabase.channel(`p2p:${roomId}`, {
-    config: { broadcast: { self: false } },
+  /* Show chat panel immediately (with history) */
+  _activateRoomUI(roomId);
+  _setConnBadge('private-connection-status', 'connecting', 'Waiting for peer…');
+  _appendRoomSystemMsg('— Joined room. Waiting for peer to connect… —');
+
+  const myMeta = {
+    sessionId:    _getSessionId(),
+    username:     STATE.identity.username,
+    rocketId:     STATE.identity.rocketId,
+    rocketConfig: STATE.identity.rocketConfig,
+    token:        STATE.identity.token,
+  };
+
+  /* Supabase Realtime channel */
+  const sigCh = STATE.supabase.channel(channelName, {
+    config: {
+      broadcast:  { self: false },
+      presence:   { key: _getSessionId() },
+    },
   });
   STATE.privateChat.signalingChannel = sigCh;
 
-  /* ── Signal handlers ── */
-  sigCh.on('broadcast', { event: 'p2p-hello'  }, ({ payload }) => _onP2PHello(payload));
-  sigCh.on('broadcast', { event: 'p2p-offer'  }, ({ payload }) => _onP2POffer(payload));
-  sigCh.on('broadcast', { event: 'p2p-answer' }, ({ payload }) => _onP2PAnswer(payload));
-  sigCh.on('broadcast', { event: 'p2p-ice'    }, ({ payload }) => _onP2PICE(payload));
-  sigCh.on('broadcast', { event: 'p2p-meta'   }, ({ payload }) => _onP2PMeta(payload));
-  sigCh.on('broadcast', { event: 'p2p-typing' }, ()            => _showTypingIndicator('private-typing-indicator', null, 'Peer is typing…'));
+  /* ── Message handler ── */
+  sigCh.on('broadcast', { event: 'room-msg' }, ({ payload }) => {
+    if (!payload?.id || !payload?.message) return;
+    _onRoomIncomingMessage(payload);
+  });
 
-  sigCh.subscribe(async status => {
-    if (status !== 'SUBSCRIBED') {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        _setConnBadge('private-connection-status', 'error', 'Signal error');
-        showToast('Signaling failed. Check Supabase config.', 'error');
-      }
+  /* ── Typing handler ── */
+  sigCh.on('broadcast', { event: 'room-typing' }, () => {
+    _showTypingIndicator('private-typing-indicator', null,
+      (STATE.privateChat.peerInfo?.username ?? 'Peer') + ' is typing…');
+  });
+
+  /* ── Presence: track who is in room ── */
+  sigCh.on('presence', { event: 'sync' }, () => {
+    const state = sigCh.presenceState();
+    const sessions = Object.values(state).flat();
+    _roomPresence = {};
+    sessions.forEach(s => { if (s.sessionId) _roomPresence[s.sessionId] = s; });
+
+    const others = sessions.filter(s => s.sessionId !== _getSessionId());
+
+    if (others.length > 0) {
+      /* Peer is in the room */
+      const peer = others[0];
+      STATE.privateChat.peerInfo = {
+        username:     peer.username     ?? 'Anonymous',
+        rocketId:     peer.rocketId     ?? '',
+        rocketConfig: peer.rocketConfig ?? null,
+      };
+      STATE.privateChat.connected = true;
+      _enablePrivateInput(true);
+      _setConnBadge('private-connection-status', 'connected',
+        (peer.username ?? 'Peer') + ' · Online');
+      _updatePeerDisplay(peer);
+
+      /* Persist peer info */
+      const c = _loadRoomConv(roomId);
+      c.peerName   = peer.username     ?? c.peerName;
+      c.peerRocket = peer.rocketConfig ?? c.peerRocket;
+      _saveRoomConv(c);
+      _renderPrivateSidebar();
+
+    } else if (sessions.length === 1) {
+      /* Only me in room */
+      STATE.privateChat.connected = false;
+      _enablePrivateInput(false);
+      _setConnBadge('private-connection-status', 'connecting', 'Waiting for peer…');
+    }
+
+    /* Enforce max 2 — if somehow 3+ sessions, show warning */
+    if (sessions.length > 2) {
+      _appendRoomSystemMsg('— Room is full (max 2 users). —');
+    }
+  });
+
+  sigCh.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+    const joiner = newPresences?.[0];
+    if (!joiner || joiner.sessionId === _getSessionId()) return;
+    const name = joiner.username ?? 'Peer';
+
+    /* Check room capacity */
+    const current = Object.keys(_roomPresence).length;
+    if (current >= 2) {
+      /* Room full — don't process this peer */
+      _appendRoomSystemMsg(`— ${sanitizeHTML(name)} tried to join but room is full. —`);
       return;
     }
 
-    /* Announce presence — this is what triggers fast pairing */
-    const meta = {
-      token:        myToken,
-      username:     STATE.identity.username,
-      rocketId:     STATE.identity.rocketId,
-      rocketConfig: STATE.identity.rocketConfig,
-    };
-    await sigCh.send({ type: 'broadcast', event: 'p2p-hello', payload: meta }).catch(() => {});
-    await sigCh.send({ type: 'broadcast', event: 'p2p-meta',  payload: meta }).catch(() => {});
+    _appendRoomSystemMsg(`— ${sanitizeHTML(name)} joined the room —`);
+    showToast(`${name} joined!`, 'success');
+  });
 
-    /* Offerer sends offer immediately upon subscribing */
-    if (STATE.privateChat.isOfferer) {
-      await _p2pCreateOffer();
+  sigCh.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+    const leaver = leftPresences?.[0];
+    if (!leaver || leaver.sessionId === _getSessionId()) return;
+    const name = leaver.username ?? 'Peer';
+    _appendRoomSystemMsg(`— ${sanitizeHTML(name)} left the room —`);
+    STATE.privateChat.connected = false;
+    _enablePrivateInput(false);
+    _setConnBadge('private-connection-status', 'connecting', 'Peer disconnected');
+    showToast(`${name} left the room.`, 'info');
+    _renderPrivateSidebar();
+  });
 
-      /* Retry offer after 4s in case answerer subscribes after us */
-      setTimeout(async () => {
-        if (!STATE.privateChat.connected && STATE.privateChat.roomId === roomId) {
-          await _p2pCreateOffer();
-        }
-      }, 4000);
+  /* ── Subscribe & track presence ── */
+  sigCh.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED') {
+      /* Track my own presence */
+      await sigCh.track(myMeta).catch(() => {});
+    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      _setConnBadge('private-connection-status', 'error', 'Connection error');
+      showToast('Room connection failed.', 'error');
     }
   });
 }
 
-/* FAST-PAIR: peer just came online → offerer (re)sends offer */
-async function _onP2PHello(payload) {
-  if (!payload?.token) return;
-  _onP2PMeta(payload); // update name/avatar right away
+/* ─── Incoming message ──────────────────────────────────────────── */
+function _onRoomIncomingMessage(payload) {
+  _appendRoomMessage(payload, false);
+}
 
-  const sigCh  = STATE.privateChat.signalingChannel;
-  const myToken = STATE.identity?.token;
+/* ─── UI helpers ────────────────────────────────────────────────── */
+function _activateRoomUI(roomId) {
+  _showChatPanel(true);
+  _setActiveSidebarItem(roomId);
+  _rehydrateRoomMessages(roomId);
 
-  if (STATE.privateChat.isOfferer) {
-    const pc = STATE.privateChat.peerConnection;
-    const st = pc?.connectionState;
-    /* Only create a new offer if no live connection */
-    if (!pc || st === 'failed' || st === 'closed' || st === 'disconnected' || st === 'new') {
-      await _p2pCreateOffer();
-    }
-  } else {
-    /* Answerer: reply with our own hello so offerer knows we are ready */
-    if (sigCh && myToken) {
-      const meta = {
-        token:        myToken,
-        username:     STATE.identity.username,
-        rocketId:     STATE.identity.rocketId,
-        rocketConfig: STATE.identity.rocketConfig,
-      };
-      await sigCh.send({ type: 'broadcast', event: 'p2p-hello', payload: meta }).catch(() => {});
-    }
+  const conv = _loadRoomConv(roomId);
+
+  /* Update header */
+  _setEl('private-peer-name', conv.peerName || roomId);
+  _setEl('private-room-id-display', roomId);
+
+  if (conv.peerRocket) {
+    const av = $('wa-peer-avatar');
+    if (av) av.innerHTML = renderRocketSVG(conv.peerRocket, 38);
+  }
+
+  /* Mobile layout */
+  if (window.innerWidth < 700) {
+    const sidebar = $('wa-sidebar');
+    const main    = $('wa-main');
+    if (sidebar) sidebar.classList.add('wa-sidebar--hidden');
+    if (main)    main.classList.add('wa-main--active');
   }
 }
 
-function _createPC() {
-  const pc = new RTCPeerConnection({ iceServers: CONFIG.ICE_SERVERS });
-
-  pc.onicecandidate = e => {
-    if (!e.candidate || !STATE.privateChat.signalingChannel) return;
-    STATE.privateChat.signalingChannel.send({
-      type: 'broadcast', event: 'p2p-ice',
-      payload: { candidate: e.candidate.toJSON(), token: STATE.identity.token },
-    }).catch(() => {});
-  };
-
-  pc.onconnectionstatechange = () => {
-    const s = pc.connectionState;
-    if (s === 'connected') {
-      const name = STATE.privateChat.peerInfo?.username ?? 'Peer';
-      _setConnBadge('private-connection-status', 'connected', `${name} · E2E`);
-      STATE.privateChat.connected = true;
-      _enablePrivateInput(true);
-      _appendSystemMsg(`— Encrypted channel open · ${sanitizeHTML(name)} —`);
-      showToast(`Connected to ${name}!`, 'success');
-      _renderSidebar();
-    } else if (s === 'disconnected' || s === 'failed') {
-      _setConnBadge('private-connection-status', 'error', 'Peer disconnected');
-      STATE.privateChat.connected = false;
-      _enablePrivateInput(false);
-      _appendSystemMsg('— Peer disconnected —');
-    }
-  };
-
-  return pc;
-}
-
-async function _p2pCreateOffer() {
-  /* Avoid duplicate offers if already in progress */
-  const ex = STATE.privateChat.peerConnection;
-  const badStates = ['failed', 'closed', 'disconnected', 'new'];
-  if (ex && !badStates.includes(ex.connectionState)) return;
-
-  const pc = _createPC();
-  STATE.privateChat.peerConnection = pc;
-
-  const dc = pc.createDataChannel('alex-p2p', { ordered: true });
-  STATE.privateChat.dataChannel = dc;
-  _wireDataChannel(dc);
-
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-
-  await STATE.privateChat.signalingChannel?.send({
-    type: 'broadcast', event: 'p2p-offer',
-    payload: { sdp: pc.localDescription, token: STATE.identity.token },
-  }).catch(() => {});
-}
-
-async function _onP2POffer(payload) {
-  if (!payload?.sdp || STATE.privateChat.isOfferer) return;
-  /* Ignore if already fully connected */
-  if (STATE.privateChat.peerConnection?.connectionState === 'connected') return;
-
-  const pc = _createPC();
-  STATE.privateChat.peerConnection = pc;
-
-  pc.ondatachannel = e => {
-    STATE.privateChat.dataChannel = e.channel;
-    _wireDataChannel(e.channel);
-  };
-
-  await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-
-  for (const c of STATE.privateChat.iceCandidateBuffer) {
-    await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
-  }
-  STATE.privateChat.iceCandidateBuffer = [];
-
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-
-  await STATE.privateChat.signalingChannel?.send({
-    type: 'broadcast', event: 'p2p-answer',
-    payload: { sdp: pc.localDescription, token: STATE.identity.token },
-  }).catch(() => {});
-}
-
-async function _onP2PAnswer(payload) {
-  if (!payload?.sdp || !STATE.privateChat.isOfferer) return;
-  const pc = STATE.privateChat.peerConnection;
-  if (!pc || pc.signalingState === 'stable') return;
-  await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp))
-    .catch(e => console.warn('[P2P] answer:', e));
-
-  for (const c of STATE.privateChat.iceCandidateBuffer) {
-    await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
-  }
-  STATE.privateChat.iceCandidateBuffer = [];
-}
-
-async function _onP2PICE(payload) {
-  if (!payload?.candidate) return;
-  const pc = STATE.privateChat.peerConnection;
-  if (pc?.remoteDescription) {
-    await pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(() => {});
-  } else {
-    STATE.privateChat.iceCandidateBuffer.push(payload.candidate);
+function _updatePeerDisplay(peer) {
+  _setEl('private-peer-name', peer.username ?? 'Peer');
+  if (peer.rocketConfig) {
+    const av = $('wa-peer-avatar');
+    if (av) av.innerHTML = renderRocketSVG(peer.rocketConfig, 38);
   }
 }
 
-function _onP2PMeta(payload) {
-  if (!payload) return;
-  STATE.privateChat.peerInfo = {
-    username:     payload.username     ?? 'Unknown',
-    rocketId:     payload.rocketId     ?? '',
-    rocketConfig: payload.rocketConfig ?? null,
-  };
-  _setEl('private-peer-name', payload.username ?? 'Peer');
-  const av = $('wa-peer-avatar');
-  if (av && payload.rocketConfig) av.innerHTML = renderRocketSVG(payload.rocketConfig, 38);
-
-  /* Persist to conv store */
-  if (STATE.privateChat.peerToken) {
-    const conv = _loadConv(STATE.privateChat.peerToken);
-    conv.peerName   = payload.username     ?? conv.peerName;
-    conv.peerRocket = payload.rocketConfig ?? conv.peerRocket;
-    _saveConv(conv);
-    _renderSidebar();
-  }
+function _rehydrateRoomMessages(roomId) {
+  const msgEl = $('private-messages');
+  if (!msgEl) return;
+  msgEl.innerHTML = '';
+  const conv = _loadRoomConv(roomId);
+  conv.messages.filter(m => m.type === 'msg').forEach(m => {
+    const isOut = m.username === STATE.identity?.username &&
+                  m.sessionId === _getSessionId();
+    _renderRoomBubble(m, isOut);
+  });
+  setTimeout(() => _scrollToBottom(msgEl), 40);
 }
 
-function _wireDataChannel(dc) {
-  dc.onopen = () => {
-    const name = STATE.privateChat.peerInfo?.username ?? 'Peer';
-    _setConnBadge('private-connection-status', 'connected', `${name} · E2E`);
-    STATE.privateChat.connected = true;
-    _enablePrivateInput(true);
-  };
-  dc.onclose = () => {
-    STATE.privateChat.connected = false;
-    _enablePrivateInput(false);
-    _setConnBadge('private-connection-status', 'idle', 'Closed');
-    _appendSystemMsg('— Channel closed —');
-  };
-  dc.onerror = () => showToast('Channel error. Please reconnect.', 'error');
-  dc.onmessage = e => {
-    try {
-      const parsed = JSON.parse(e.data);
-      if (parsed.type === 'typing') { _showTypingIndicator('private-typing-indicator', null, 'Peer is typing…'); return; }
-      if (parsed.type === 'msg')    _appendPrivateMessage(parsed, false);
-    } catch {}
-  };
-}
-
-function _sendPrivateMessage() {
+/* ─── Send message ──────────────────────────────────────────────── */
+function _sendRoomMessage() {
   const input   = $('private-chat-input');
-  const btnSend = $('btn-private-send');
-  if (!input || !STATE.privateChat.dataChannel || !STATE.privateChat.connected) return;
+  const sigCh   = STATE.privateChat.signalingChannel;
+  if (!input || !sigCh || !STATE.privateChat.connected) return;
 
   const text = input.value.trim();
   if (!text) return;
 
   const msg = {
-    type: 'msg', id: genUUID(),
-    username: STATE.identity.username, rocketId: STATE.identity.rocketId,
+    type:         'msg',
+    id:           genUUID(),
+    sessionId:    _getSessionId(),
+    username:     STATE.identity.username,
+    rocketId:     STATE.identity.rocketId,
     rocketConfig: STATE.identity.rocketConfig,
-    message: text, ts: Date.now(),
+    message:      text,
+    ts:           Date.now(),
   };
 
-  try {
-    STATE.privateChat.dataChannel.send(JSON.stringify(msg));
-    _appendPrivateMessage(msg, true);
-    input.value = '';
-    autoResizeTextarea(input);
-    if (btnSend) btnSend.disabled = true;
-    try { input.focus(); } catch {}
-  } catch (e) {
-    showToast('Send failed.', 'error');
-    console.error('[DataChannel] send error:', e);
-  }
+  sigCh.send({ type: 'broadcast', event: 'room-msg', payload: msg }).catch(() => {});
+  _appendRoomMessage(msg, true);
+
+  input.value = '';
+  autoResizeTextarea(input);
+  const btn = $('btn-private-send');
+  if (btn) btn.disabled = true;
+  try { input.focus(); } catch {}
 }
 
-function _appendPrivateMessage(msg, isOutgoing, skipSave = false) {
-  /* Persist */
+function _appendRoomMessage(msg, isOutgoing, skipSave = false) {
   if (!skipSave && STATE.privateChat.peerToken) {
-    const conv = _loadConv(STATE.privateChat.peerToken);
-    conv.messages.push(msg);
-    _saveConv(conv);
-    _renderSidebar();
+    const conv = _loadRoomConv(STATE.privateChat.peerToken);
+    /* Deduplicate by id */
+    if (!conv.messages.find(m => m.id === msg.id)) {
+      conv.messages.push(msg);
+      _saveRoomConv(conv);
+      _renderPrivateSidebar();
+    }
   }
-  _renderMsgBubble(msg, isOutgoing);
+  _renderRoomBubble(msg, isOutgoing);
 }
 
-function _renderMsgBubble(msg, isOutgoing) {
+function _renderRoomBubble(msg, isOutgoing) {
   const el = $('private-messages');
   if (!el) return;
   const rkt  = msg.rocketConfig ? renderRocketSVG(msg.rocketConfig, 30) : '';
@@ -1969,17 +1991,18 @@ function _renderMsgBubble(msg, isOutgoing) {
   _scrollToBottom(el);
 }
 
-function _appendSystemMsg(text) {
-  const el = $('private-messages');
-  if (!el) return;
-  const item = document.createElement('div');
-  item.className = 'msg msg--system';
-  item.setAttribute('role', 'listitem');
-  item.innerHTML = `<span class="msg-sys-text">${sanitizeHTML(text)}</span>`;
-  el.appendChild(item);
-  _scrollToBottom(el);
+function _appendRoomSystemMsg(text) {
+  _appendSystemMessage('private-messages', text);
 }
 
+/* ─── Typing indicator ──────────────────────────────────────────── */
+function _onRoomTyping() {
+  const sigCh = STATE.privateChat.signalingChannel;
+  if (!sigCh || !STATE.privateChat.connected) return;
+  sigCh.send({ type: 'broadcast', event: 'room-typing', payload: {} }).catch(() => {});
+}
+
+/* ─── Input enable / disable ────────────────────────────────────── */
 function _enablePrivateInput(enabled) {
   const input   = $('private-chat-input');
   const btnSend = $('btn-private-send');
@@ -1990,45 +2013,62 @@ function _enablePrivateInput(enabled) {
   if (btnSend) btnSend.disabled = !enabled || !(input?.value?.trim());
 }
 
-function _onPrivateTyping() {
-  if (!STATE.privateChat.dataChannel || !STATE.privateChat.connected) return;
-  try { STATE.privateChat.dataChannel.send(JSON.stringify({ type: 'typing' })); } catch {}
+/* ─── Export / clear ────────────────────────────────────────────── */
+function _handleExportChat() {
+  const roomId = STATE.privateChat.peerToken;
+  if (!roomId) return;
+  const conv  = _loadRoomConv(roomId);
+  const lines = conv.messages
+    .filter(m => m.type === 'msg')
+    .map(m => `[${new Date(m.ts).toLocaleString()}] ${m.username}: ${m.message}`)
+    .join('\n');
+  const blob = new Blob([lines || '(no messages)'], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `chat-${roomId}-${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Chat exported.', 'success');
 }
 
-/* Activate the chat panel and load history */
-function _activateChatUI(peerToken) {
-  _showChatPanel(true);
-  _setActiveSidebarItem(peerToken);
-  _rehydrateMessages(peerToken);
-
-  /* Update peer name from stored conv */
-  const conv = _loadConv(peerToken);
-  if (conv.peerName) _setEl('private-peer-name', conv.peerName);
-  if (conv.peerRocket) {
-    const av = $('wa-peer-avatar');
-    if (av) av.innerHTML = renderRocketSVG(conv.peerRocket, 38);
-  }
-
-  /* On mobile: hide sidebar, show main */
-  if (window.innerWidth < 700) {
-    const sidebar = $('wa-sidebar');
-    const main    = $('wa-main');
-    if (sidebar) sidebar.classList.add('wa-sidebar--hidden');
-    if (main)    main.classList.add('wa-main--active');
-  }
+function _handleClearChat() {
+  const roomId = STATE.privateChat.peerToken;
+  if (!roomId) return;
+  const conv = _loadRoomConv(roomId);
+  conv.messages = [];
+  _saveRoomConv(conv);
+  const msgEl = $('private-messages');
+  if (msgEl) msgEl.innerHTML = '';
+  _appendRoomSystemMsg('— Conversation deleted —');
+  _renderPrivateSidebar();
+  showToast('Conversation deleted.', 'info');
 }
 
+/* ─── Copy helper ───────────────────────────────────────────────── */
+async function _copyField(elId, label) {
+  const el = $(elId);
+  if (!el) return;
+  const text = el.textContent.trim();
+  const ok = await copyToClipboard(text);
+  showToast(ok ? `${label} copied!` : 'Copy failed.', ok ? 'success' : 'error');
+}
+
+/* ─── Cleanup ───────────────────────────────────────────────────── */
 function _cleanupPrivateChat() {
-  if (STATE.privateChat.dataChannel)      { try { STATE.privateChat.dataChannel.close();    } catch {} STATE.privateChat.dataChannel    = null; }
-  if (STATE.privateChat.peerConnection)   { try { STATE.privateChat.peerConnection.close(); } catch {} STATE.privateChat.peerConnection = null; }
-  if (STATE.privateChat.signalingChannel) { STATE.privateChat.signalingChannel.unsubscribe().catch(() => {}); STATE.privateChat.signalingChannel = null; }
+  if (STATE.privateChat.signalingChannel) {
+    STATE.privateChat.signalingChannel.unsubscribe().catch(() => {});
+    STATE.privateChat.signalingChannel = null;
+  }
   STATE.privateChat.peerToken          = null;
   STATE.privateChat.roomId             = null;
   STATE.privateChat.connected          = false;
   STATE.privateChat.isOfferer          = false;
   STATE.privateChat.peerInfo           = null;
   STATE.privateChat.iceCandidateBuffer = [];
+  _roomPresence = {};
 }
+
 /* ═══════════════════════════════════════════════════════════════════════
    §20  CALL SYSTEM  — WebRTC mesh for voice/video (up to 4 peers)
    ───────────────────────────────────────────────────────────────────

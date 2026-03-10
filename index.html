@@ -819,19 +819,19 @@
 
 
   <!-- ╔═══════════════════════════════════════════════════════════════╗
-       ║  SCREEN 6 · PRIVATE CHAT (P2P WebRTC DataChannel)           ║
+       ║  SCREEN 6 · PRIVATE CHAT (Room-based · Supabase Realtime)   ║
        ╚═══════════════════════════════════════════════════════════════╝ -->
   <section
     id="screen-private-chat"
     class="screen"
     data-screen="private-chat"
-    aria-label="Private peer-to-peer encrypted chat"
+    aria-label="Private room-based chat"
     hidden
   >
   <div class="wa-layout">
 
     <!-- ═══════════════════════════════════
-         LEFT SIDEBAR — Chats list + my ID
+         LEFT SIDEBAR — Rooms list
     ═══════════════════════════════════ -->
     <aside class="wa-sidebar" id="wa-sidebar">
 
@@ -840,29 +840,20 @@
         <button class="wa-back-btn" id="btn-back-from-private" type="button" aria-label="Back to dashboard">
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
-        <span class="wa-sidebar__title">Chats</span>
-        <button class="wa-icon-btn" id="btn-wa-new-chat" type="button" aria-label="New chat" title="New chat">
+        <span class="wa-sidebar__title">Private Rooms</span>
+        <button class="wa-icon-btn" id="btn-wa-new-chat" type="button" aria-label="New room" title="New room">
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path d="M4 4h12a1 1 0 011 1v8a1 1 0 01-1 1h-6l-4 3v-3H4a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            <path d="M7 8h6M7 11h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
 
-      <!-- My ID card (always shown, tap to copy) -->
+      <!-- My identity card -->
       <div class="wa-myid-card">
         <div class="wa-myid-card__avatar" id="wa-my-avatar" aria-hidden="true"></div>
         <div class="wa-myid-card__body">
           <span class="wa-myid-card__name" id="wa-my-name">—</span>
-          <div class="wa-myid-card__row">
-            <span class="wa-myid-card__token" id="private-my-token-display">—</span>
-            <button class="wa-copy-btn" id="btn-copy-my-token" type="button" aria-label="Copy my Chat ID">
-              <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
-                <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-              </svg>
-            </button>
-          </div>
+          <span class="wa-myid-card__token" style="font-size:0.7rem;color:var(--color-text-muted);">Anonymous Pilot</span>
         </div>
       </div>
 
@@ -870,15 +861,15 @@
       <div class="wa-sidebar__divider" aria-hidden="true"></div>
 
       <!-- Conversation list (JS renders items) -->
-      <div class="wa-conv-list" id="wa-conv-list" role="list" aria-label="Conversations">
-        <!-- empty state -->
+      <div class="wa-conv-list" id="wa-conv-list" role="list" aria-label="Rooms">
         <div class="wa-conv-empty" id="wa-conv-empty">
           <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
-            <path d="M5 7h30a2 2 0 012 2v17a2 2 0 01-2 2H22l-6 5v-5H5a2 2 0 01-2-2V9a2 2 0 012-2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-            <path d="M11 17h18M11 21h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <rect x="6" y="8" width="28" height="22" rx="3" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M14 19h12M14 23h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M20 30v4M16 34h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
           </svg>
-          <p>No conversations yet</p>
-          <p class="wa-conv-empty__hint">Tap <strong>New chat</strong> to start</p>
+          <p>No rooms yet</p>
+          <p class="wa-conv-empty__hint">Tap <strong>+</strong> to create or join a room</p>
         </div>
       </div>
 
@@ -889,45 +880,141 @@
     ═══════════════════════════════════ -->
     <div class="wa-main" id="wa-main">
 
-      <!-- ── NEW CHAT PANEL (shown when no active chat) ── -->
+      <!-- ── ROOM SETUP PANEL ── -->
       <div class="wa-welcome" id="wa-welcome">
         <div class="wa-welcome__inner">
+
+          <!-- Icon -->
           <div class="wa-welcome__icon" aria-hidden="true">
             <svg viewBox="0 0 64 64" fill="none">
-              <circle cx="32" cy="32" r="26" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.25"/>
-              <circle cx="32" cy="32" r="15" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
-              <circle cx="32" cy="32" r="5"  fill="currentColor" opacity="0.7"/>
-              <circle cx="10" cy="32" r="3"  fill="currentColor" opacity="0.3"/>
-              <circle cx="54" cy="32" r="3"  fill="currentColor" opacity="0.3"/>
+              <rect x="8" y="14" width="48" height="36" rx="6" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+              <rect x="14" y="20" width="36" height="24" rx="4" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>
+              <circle cx="32" cy="32" r="6" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="32" cy="32" r="2" fill="currentColor" opacity="0.8"/>
+              <path d="M32 14V8M32 56v-6M8 32H2M62 32h-6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
             </svg>
           </div>
-          <h3 class="wa-welcome__title">New Encrypted Chat</h3>
-          <p class="wa-welcome__desc">Enter the Chat ID of the person you want to reach. Messages travel directly device‑to‑device — zero server, zero logs.</p>
 
-          <div class="wa-form">
-            <label class="wa-form__label" for="private-token-input">Peer's Chat ID</label>
-            <div class="wa-form__input-row">
-              <span class="wa-form__prefix">u_</span>
-              <input
-                type="text"
-                id="private-token-input"
-                class="wa-form__input"
-                placeholder="Paste their Chat ID here..."
-                maxlength="30"
-                autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
-                aria-label="Peer Chat ID"
-                aria-describedby="private-token-hint private-token-error"
-              />
-            </div>
-            <p class="wa-form__hint" id="private-token-hint">Paste the full ID shared by your contact</p>
-            <p class="wa-form__error" id="private-token-error" role="alert" aria-live="assertive"></p>
-            <button class="wa-connect-btn" id="btn-connect-peer" type="button">
-              <svg viewBox="0 0 18 18" fill="none" aria-hidden="true" width="15" height="15">
-                <path d="M16 9H2M9.5 3L16 9l-6.5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <h3 class="wa-welcome__title">Anonymous Chat Room</h3>
+          <p class="wa-welcome__desc">Create a private room or join one with a Room ID and 6-digit password. Only 2 people can be in a room at a time.</p>
+
+          <!-- Tab bar -->
+          <div class="room-tabs" role="tablist">
+            <button class="room-tab room-tab--active" id="room-tab-create" role="tab" aria-selected="true" type="button">
+              <svg viewBox="0 0 16 16" fill="none" width="13" height="13" aria-hidden="true">
+                <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
-              Connect
+              Create Room
+            </button>
+            <button class="room-tab" id="room-tab-join" role="tab" aria-selected="false" type="button">
+              <svg viewBox="0 0 16 16" fill="none" width="13" height="13" aria-hidden="true">
+                <path d="M2 8h9M8 5l3 3-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M11 3h2a1 1 0 011 1v8a1 1 0 01-1 1h-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              Join Room
             </button>
           </div>
+
+          <!-- ── CREATE PANEL ── -->
+          <div id="room-panel-create" class="room-panel">
+
+            <p class="room-panel__hint">Generate a unique Room ID and 6-digit password, then share them with the person you want to chat with.</p>
+
+            <button class="room-generate-btn" id="btn-generate-room" type="button">
+              <svg viewBox="0 0 18 18" fill="none" width="16" height="16" aria-hidden="true">
+                <path d="M9 1v3M9 14v3M1 9h3M14 9h3M3.2 3.2l2.1 2.1M12.7 12.7l2.1 2.1M3.2 14.8l2.1-2.1M12.7 5.3l2.1-2.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+              Generate Room ID &amp; Password
+            </button>
+
+            <!-- Generated credentials box (hidden until generate clicked) -->
+            <div class="room-creds-box" id="generated-room-box" hidden>
+              <div class="room-cred-row">
+                <div class="room-cred-item">
+                  <span class="room-cred-label">ROOM ID</span>
+                  <div class="room-cred-value-row">
+                    <span class="room-cred-value" id="generated-room-id">—</span>
+                    <button class="room-cred-copy" id="btn-copy-room-id" type="button" aria-label="Copy room ID">
+                      <svg viewBox="0 0 14 14" fill="none" width="13" height="13" aria-hidden="true">
+                        <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="room-cred-item">
+                  <span class="room-cred-label">PASSWORD</span>
+                  <div class="room-cred-value-row">
+                    <span class="room-cred-value room-cred-value--pass" id="generated-room-pass">—</span>
+                    <button class="room-cred-copy" id="btn-copy-room-pass" type="button" aria-label="Copy password">
+                      <svg viewBox="0 0 14 14" fill="none" width="13" height="13" aria-hidden="true">
+                        <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p class="room-creds-note">Share these credentials with your contact. The room auto-locks when 2 people join.</p>
+            </div>
+
+            <button class="wa-connect-btn" id="btn-create-room" type="button" hidden>
+              <svg viewBox="0 0 18 18" fill="none" width="14" height="14" aria-hidden="true">
+                <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M6 9l2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Enter Room
+            </button>
+
+          </div>
+          <!-- /room-panel-create -->
+
+          <!-- ── JOIN PANEL ── -->
+          <div id="room-panel-join" class="room-panel" hidden>
+
+            <p class="room-panel__hint">Enter the Room ID and password shared by your contact to connect.</p>
+
+            <div class="room-join-fields">
+              <div class="room-field-group">
+                <label class="room-field-label" for="room-join-id">Room ID</label>
+                <input
+                  type="text"
+                  id="room-join-id"
+                  class="room-field-input"
+                  placeholder="ALEX-XXXX-XXXX"
+                  maxlength="14"
+                  autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+                  aria-label="Room ID"
+                />
+              </div>
+              <div class="room-field-group">
+                <label class="room-field-label" for="room-join-pass">Password</label>
+                <input
+                  type="text"
+                  id="room-join-pass"
+                  class="room-field-input room-field-input--pass"
+                  placeholder="6-digit PIN"
+                  maxlength="6"
+                  inputmode="numeric"
+                  autocomplete="off" spellcheck="false"
+                  aria-label="Room password"
+                  aria-describedby="room-join-error"
+                />
+              </div>
+            </div>
+
+            <p class="wa-form__error" id="room-join-error" role="alert" aria-live="assertive"></p>
+
+            <button class="wa-connect-btn" id="btn-join-room" type="button">
+              <svg viewBox="0 0 18 18" fill="none" width="14" height="14" aria-hidden="true">
+                <path d="M2 9h11M10 6l3 3-3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 3h3a1 1 0 011 1v10a1 1 0 01-1 1h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              Join Room
+            </button>
+
+          </div>
+          <!-- /room-panel-join -->
 
         </div>
       </div>
@@ -938,28 +1025,29 @@
 
         <!-- Chat top bar -->
         <header class="wa-chat__header">
-          <!-- mobile back button -->
-          <button class="wa-chat__back-mobile" id="btn-wa-back-mobile" type="button" aria-label="Back to chats">
+          <button class="wa-chat__back-mobile" id="btn-wa-back-mobile" type="button" aria-label="Back to rooms">
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
-          <!-- peer avatar + info -->
           <div class="wa-chat__peer-avatar" id="wa-peer-avatar" aria-hidden="true"></div>
           <div class="wa-chat__peer-info">
             <span class="wa-chat__peer-name" id="private-peer-name">—</span>
             <div class="wa-chat__status" id="private-connection-status" role="status" aria-live="polite">
               <span class="conn-dot conn-dot--idle" aria-hidden="true"></span>
-              <span class="conn-text">Connecting...</span>
+              <span class="conn-text">Waiting for peer…</span>
             </div>
           </div>
-          <!-- action buttons -->
+          <div class="wa-chat__room-chip">
+            <span class="wa-room-chip-label">ROOM</span>
+            <span class="wa-room-chip-id" id="private-room-id-display">—</span>
+          </div>
           <div class="wa-chat__actions">
-            <button class="wa-icon-btn" id="btn-export-chat" type="button" aria-label="Export conversation" title="Export chat">
+            <button class="wa-icon-btn" id="btn-export-chat" type="button" aria-label="Export conversation" title="Export">
               <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
                 <path d="M9 2v9M6 8l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M3 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
               </svg>
             </button>
-            <button class="wa-icon-btn wa-icon-btn--danger" id="btn-clear-chat" type="button" aria-label="Delete conversation" title="Delete chat">
+            <button class="wa-icon-btn wa-icon-btn--danger" id="btn-clear-chat" type="button" aria-label="Delete chat history" title="Clear history">
               <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
                 <path d="M3 5h12M7 5V3.5h4V5M5 5l.8 10h6.4L13 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M7.5 8v4M10.5 8v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -970,10 +1058,10 @@
 
         <!-- Messages -->
         <div class="wa-messages-wrap" id="private-chat-body">
-          <div class="wa-messages" id="private-messages" role="log" aria-label="Private chat messages" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
+          <div class="wa-messages" id="private-messages" role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
           <div class="typing-indicator" id="private-typing-indicator" aria-live="polite" aria-atomic="true" hidden>
             <div class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-            <span class="typing-text">Peer is typing...</span>
+            <span class="typing-text">Peer is typing…</span>
           </div>
         </div>
 
@@ -983,7 +1071,7 @@
           <textarea
             id="private-chat-input"
             class="wa-input-bar__textarea"
-            placeholder="Message"
+            placeholder="Message…"
             rows="1"
             maxlength="1000"
             aria-label="Type a message"
