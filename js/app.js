@@ -3706,54 +3706,138 @@ function _pruneMessages(el) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   §22b  SHOOTING STARS & COSMIC BACKGROUND
+   §22b  SHOOTING STARS — Canvas-based, single RAF loop
+   Satu <canvas> element menggantikan 90+ DOM nodes.
+   Pauses otomatis saat tab tidak aktif (visibilitychange).
    ═══════════════════════════════════════════════════════════════════ */
 
 function _initShootingStars() {
-  const layer = $('shooting-stars-layer');
-  if (!layer) return;
+  /* Skip if user prefers reduced motion */
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  /* ── Static twinkling stars ── */
-  const starCount = 80;
-  for (let i = 0; i < starCount; i++) {
-    const s  = document.createElement('div');
-    s.className = 'star';
-    const x  = Math.random() * 100;
-    const y  = Math.random() * 100;
-    const op = (0.2 + Math.random() * 0.6).toFixed(2);
-    const dur = (2 + Math.random() * 4).toFixed(1);
-    const del = (Math.random() * 5).toFixed(2);
-    const sz  = Math.random() > 0.85 ? '2.5px' : '1.5px';
-    s.style.cssText = `
-      left:${x}%; top:${y}%;
-      --tw-op:${op}; --tw-dur:${dur}s; --tw-del:${del}s;
-      width:${sz}; height:${sz};`;
-    layer.appendChild(s);
+  const canvas = document.getElementById('star-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  let W, H, raf = null, paused = false;
+
+  /* ── Resize handler ── */
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+
+  /* ── Static stars data (created once) ── */
+  const STAR_COUNT = 55; /* enough to look nice, not too many */
+  const stars = Array.from({ length: STAR_COUNT }, () => ({
+    x: Math.random(),    /* 0–1 of W */
+    y: Math.random(),    /* 0–1 of H */
+    r: Math.random() > 0.88 ? 1.3 : 0.7,
+    base: 0.15 + Math.random() * 0.55,  /* base opacity */
+    speed: 0.4 + Math.random() * 1.2,   /* twinkle speed */
+    phase: Math.random() * Math.PI * 2,  /* twinkle phase */
+  }));
+
+  /* ── Shooting stars data ── */
+  const SHOOT_COUNT = 4; /* only 4 active at any time */
+  const shoots = Array.from({ length: SHOOT_COUNT }, (_, i) => _newShoot(i * (1000 / SHOOT_COUNT)));
+
+  function _newShoot(delay) {
+    return {
+      progress: -delay / 4000, /* negative = waiting */
+      y:      0.05 + Math.random() * 0.80,
+      angle:  -(0.18 + Math.random() * 0.20),  /* radians */
+      len:    60 + Math.random() * 90,
+      dur:    2200 + Math.random() * 1800,     /* ms */
+      delay:  2000 + Math.random() * 14000,    /* ms between shots */
+      waiting: true,
+      waitLeft: 3000 + Math.random() * 12000,
+    };
   }
 
-  /* ── Shooting stars ── */
-  const shootData = [
-    { y:'8%',  dur:'2.8s', del:'0s',    rot:'-18deg', w:'130px' },
-    { y:'22%', dur:'3.2s', del:'3.5s',  rot:'-22deg', w:'90px'  },
-    { y:'45%', dur:'2.5s', del:'7s',    rot:'-15deg', w:'160px' },
-    { y:'65%', dur:'3.8s', del:'1.5s',  rot:'-25deg', w:'110px' },
-    { y:'80%', dur:'2.2s', del:'5s',    rot:'-20deg', w:'80px'  },
-    { y:'15%', dur:'4.0s', del:'9s',    rot:'-28deg', w:'140px' },
-    { y:'55%', dur:'3.0s', del:'12s',   rot:'-12deg', w:'100px' },
-    { y:'35%', dur:'2.7s', del:'6s',    rot:'-30deg', w:'120px' },
-    { y:'70%', dur:'3.5s', del:'15s',   rot:'-18deg', w:'90px'  },
-    { y:'90%', dur:'2.4s', del:'18s',   rot:'-24deg', w:'150px' },
-  ];
+  let last = performance.now();
 
-  shootData.forEach(d => {
-    const ss = document.createElement('div');
-    ss.className = 'shooting-star';
-    ss.style.cssText = `
-      --ss-y:${d.y}; --ss-dur:${d.dur}; --ss-del:${d.del};
-      --ss-rot:${d.rot}; --ss-w:${d.w};
-      top:${d.y};`;
-    layer.appendChild(ss);
+  function draw(now) {
+    if (paused) { raf = requestAnimationFrame(draw); return; }
+
+    const dt = Math.min(now - last, 50); /* cap dt to avoid jump after tab switch */
+    last = now;
+    const t = now / 1000;
+
+    ctx.clearRect(0, 0, W, H);
+
+    /* ── Draw static twinkling stars ── */
+    stars.forEach(s => {
+      const twinkle = s.base + Math.sin(t * s.speed + s.phase) * (s.base * 0.5);
+      ctx.globalAlpha = Math.max(0, Math.min(1, twinkle));
+      ctx.fillStyle = '#c8e8ff';
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    /* ── Draw shooting stars ── */
+    shoots.forEach((s, i) => {
+      if (s.waiting) {
+        s.waitLeft -= dt;
+        if (s.waitLeft <= 0) {
+          s.waiting  = false;
+          s.progress = 0;
+          s.y        = 0.05 + Math.random() * 0.80;
+          s.angle    = -(0.18 + Math.random() * 0.22);
+          s.len      = 60 + Math.random() * 90;
+          s.dur      = 2200 + Math.random() * 1800;
+        }
+        return;
+      }
+
+      s.progress += dt / s.dur;
+
+      if (s.progress >= 1) {
+        s.waiting  = true;
+        s.waitLeft = 4000 + Math.random() * 14000;
+        return;
+      }
+
+      /* Ease in-out */
+      const p   = s.progress;
+      const pos = p * (W + 200) - 100; /* x across screen */
+      const ox  = pos;
+      const oy  = s.y * H + Math.tan(s.angle) * pos;
+
+      /* Fade in/out */
+      const fade = p < 0.08 ? p / 0.08 : p > 0.88 ? (1 - p) / 0.12 : 1;
+
+      const grad = ctx.createLinearGradient(
+        ox - Math.cos(-s.angle) * s.len, oy - Math.sin(-s.angle) * s.len,
+        ox, oy
+      );
+      grad.addColorStop(0, 'rgba(200,232,255,0)');
+      grad.addColorStop(0.6, `rgba(200,232,255,${(0.6 * fade).toFixed(2)})`);
+      grad.addColorStop(1, `rgba(255,255,255,${(0.9 * fade).toFixed(2)})`);
+
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = grad;
+      ctx.lineWidth   = 1.2;
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      ctx.moveTo(ox - Math.cos(-s.angle) * s.len, oy - Math.sin(-s.angle) * s.len);
+      ctx.lineTo(ox, oy);
+      ctx.stroke();
+    });
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  /* ── Pause when tab hidden — saves battery/CPU ── */
+  document.addEventListener('visibilitychange', () => {
+    paused = document.hidden;
+    if (!paused) last = performance.now(); /* reset dt after pause */
   });
+
+  raf = requestAnimationFrame(draw);
 }
 
 
