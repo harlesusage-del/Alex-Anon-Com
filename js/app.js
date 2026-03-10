@@ -40,8 +40,8 @@
    ═══════════════════════════════════════════════════════════════════ */
 const CONFIG = {
   /* ── Supabase ─────────────────────────────────────────────── */
-  SUPABASE_URL:      'https://YOUR_PROJECT_ID.supabase.co',
-  SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY',
+  SUPABASE_URL:      'https://hlsxvsmraineuxicmkro.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhsc3h2c21yYWluZXV4aWNta3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwODE1ODEsImV4cCI6MjA4ODY1NzU4MX0.9VfDVjECzX2WAzO_ruMkezWqLMcihc6iJVJLddX6Ys0',
 
   /* ── Jitsi ────────────────────────────────────────────────── */
   JITSI_DOMAIN: 'meet.jit.si',
