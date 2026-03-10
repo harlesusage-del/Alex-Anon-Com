@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <!-- ═══════════════════════════════════════════════
+       META & SEO
+  ═══════════════════════════════════════════════ -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description"    content="Alex — Anonymous communication hub for communities. Rocket identities. Token-based privacy. Real-time connection." />
+  <meta name="theme-color"    content="#050d1a" />
+  <meta name="robots"         content="noindex, nofollow" />
+  <meta name="color-scheme"   content="dark" />
+
+  <!-- Open Graph -->
+  <meta property="og:title"       content="Alex — Anonymous Communication Hub" />
+  <meta property="og:description" content="Futuristic anonymous communication for communities." />
+  <meta property="og:type"        content="website" />
+
+  <title>Alex — Anonymous Communication Hub</title>
+
+  <!-- ═══════════════════════════════════════════════
+       FONTS
+       Display  : Orbitron     — geometric, space-grade
+       Body     : Rajdhani     — technical, military-clean
+       Mono     : Share Tech Mono — tokens, codes
+  ═══════════════════════════════════════════════ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- ═══════════════════════════════════════════════
+       STYLESHEET
+  ═══════════════════════════════════════════════ -->
+  <link rel="stylesheet" href="css/main.css" />
+
+  <!-- Inline SVG favicon -->
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23050d1a'/><path d='M16 4C16 4 11 10 11 18C11 21 12 23.6 13.8 25.4L16 29L18.2 25.4C20 23.6 21 21 21 18C21 10 16 4 16 4Z' fill='%234a9eff'/><circle cx='16' cy='17' r='2.5' fill='%23050d1a'/></svg>"
+  />
+</head>
+
+<body>
+
+<!-- ██████████████████████████████████████████████████████████████████
+     APP ROOT — All screens live here. JS controls visibility.
+     Active screen carries class  .screen--active
+     Transitioning screen carries class  .screen--exiting
+█████████████████████████████████████████████████████████████████████ -->
+<div id="app">
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 1 · LOADING                                         ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-loading"
+    class="screen screen--active"
+    data-screen="loading"
+    aria-label="Loading — initialising anonymous channel"
+    style="opacity:1;transform:translateY(0) scale(1);pointer-events:all;"
+  >
+
+    <!-- Animated starfield canvas (JS draws stars here) -->
+    <canvas id="loading-canvas" aria-hidden="true"></canvas>
+
+    <!-- Nebula atmospheric glow layers -->
+    <div class="nebula nebula--blue"   aria-hidden="true"></div>
+    <div class="nebula nebula--purple" aria-hidden="true"></div>
+    <div class="nebula nebula--teal"   aria-hidden="true"></div>
+
+    <!-- ── Central loading content ── -->
+    <div class="loading-content" role="main">
+
+      <!-- Animated logo mark -->
+      <div class="loading-logo" id="loading-logo" aria-label="Alex logo">
+        <div class="loading-logo__ring loading-logo__ring--outer" aria-hidden="true"></div>
+        <div class="loading-logo__ring loading-logo__ring--middle" aria-hidden="true"></div>
+        <div class="loading-logo__ring loading-logo__ring--inner"  aria-hidden="true"></div>
+        <div class="loading-logo__core" aria-hidden="true">
+          <!-- Inline rocket SVG for logo -->
+          <svg viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="lg-body" x1="24" y1="4"  x2="24" y2="44" gradientUnits="userSpaceOnUse">
+                <stop offset="0%"   stop-color="#c8e8ff"/>
+                <stop offset="100%" stop-color="#4a9eff"/>
+              </linearGradient>
+              <linearGradient id="lg-wing-l" x1="6" y1="28" x2="16" y2="28" gradientUnits="userSpaceOnUse">
+                <stop offset="0%"   stop-color="#4a9eff" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#4a9eff"/>
+              </linearGradient>
+              <linearGradient id="lg-wing-r" x1="42" y1="28" x2="32" y2="28" gradientUnits="userSpaceOnUse">
+                <stop offset="0%"   stop-color="#4a9eff" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#4a9eff"/>
+              </linearGradient>
+              <linearGradient id="lg-flame" x1="24" y1="42" x2="24" y2="56" gradientUnits="userSpaceOnUse">
+                <stop offset="0%"   stop-color="#ff9a3c"/>
+                <stop offset="60%"  stop-color="#ff5c1a"/>
+                <stop offset="100%" stop-color="#ff5c1a" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- Rocket body -->
+            <path d="M24 4C24 4 15 15 15 28C15 33.5 17 38.5 20.5 42L24 48L27.5 42C31 38.5 33 33.5 33 28C33 15 24 4 24 4Z" fill="url(#lg-body)"/>
+            <!-- Window -->
+            <circle cx="24" cy="26" r="5" fill="#0ef" opacity="0.9"/>
+            <circle cx="24" cy="26" r="3" fill="#050d1a" opacity="0.7"/>
+            <!-- Wings -->
+            <path d="M15 28C15 28 7 31 5 38L15 35Z" fill="url(#lg-wing-l)"/>
+            <path d="M33 28C33 28 41 31 43 38L33 35Z" fill="url(#lg-wing-r)"/>
+            <!-- Flame -->
+            <path d="M20 42C20 42 18 46 16 52L24 50L32 52C30 46 28 42 28 42Z" fill="url(#lg-flame)"/>
+          </svg>
+        </div>
+        <div class="loading-logo__pulse" aria-hidden="true"></div>
+      </div>
+
+      <!-- Platform title -->
+      <div class="loading-title" aria-label="Alex Anonymous Communication Hub">
+        <h1 class="loading-title__name">ALEX</h1>
+        <p class="loading-title__sub">ANONYMOUS COMMUNICATION HUB</p>
+      </div>
+
+      <!-- Progress bar -->
+      <div
+        class="loading-progress"
+        id="loading-progress-bar"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+        aria-label="Loading progress"
+      >
+        <div class="loading-progress__track" aria-hidden="true">
+          <div class="loading-progress__fill" id="loading-progress-fill"></div>
+          <div class="loading-progress__glow"  id="loading-progress-glow"></div>
+        </div>
+        <span class="loading-progress__pct" id="loading-progress-pct" aria-hidden="true">0%</span>
+      </div>
+
+      <!-- Dynamic status message (updates as loading progresses) -->
+      <p class="loading-message" id="loading-message" aria-live="polite" aria-atomic="true">
+        Initializing anonymous channel...
+      </p>
+
+    </div>
+    <!-- /loading-content -->
+
+    <!-- Corner frame decorations -->
+    <div class="corner-deco corner-deco--tl" aria-hidden="true"></div>
+    <div class="corner-deco corner-deco--tr" aria-hidden="true"></div>
+    <div class="corner-deco corner-deco--bl" aria-hidden="true"></div>
+    <div class="corner-deco corner-deco--br" aria-hidden="true"></div>
+
+    <!-- Scanline overlay -->
+    <div class="scanlines" aria-hidden="true"></div>
+
+  </section>
+  <!-- /screen-loading -->
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 2 · USERNAME / CALL SIGN INPUT                      ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-username"
+    class="screen"
+    data-screen="username"
+    aria-label="Enter your call sign"
+    hidden
+  >
+
+    <!-- Background canvas (shared starfield) -->
+    <canvas id="username-canvas" aria-hidden="true"></canvas>
+    <div class="nebula nebula--blue   nebula--dim" aria-hidden="true"></div>
+    <div class="nebula nebula--purple nebula--dim" aria-hidden="true"></div>
+
+    <!-- Floating micro-particles layer (JS populates) -->
+    <div class="particles-layer" id="username-particles" aria-hidden="true"></div>
+
+    <!-- ── Card wrapper ── -->
+    <div class="callsign-wrapper">
+      <div class="callsign-card" role="main">
+
+        <!-- Card header -->
+        <div class="callsign-card__header">
+          <div class="callsign-card__icon" aria-hidden="true">
+            <!-- Targeting reticle icon -->
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="17" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.35"/>
+              <circle cx="20" cy="20" r="10" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="20" cy="20" r="3.5" fill="currentColor"/>
+              <path d="M20 3V8M20 32V37M3 20H8M32 20H37" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h2 class="callsign-card__title">Enter Your Call Sign</h2>
+          <p class="callsign-card__subtitle">
+            Choose a temporary name. No registration. No tracking. Your identity stays anonymous.
+          </p>
+        </div>
+
+        <!-- Input form body -->
+        <div class="callsign-card__body">
+
+          <div class="input-group" id="username-form" role="form" aria-label="Call sign form">
+
+            <div class="input-field-wrapper">
+              <span class="input-field-prefix" aria-hidden="true">〉</span>
+              <input
+                type="text"
+                id="username-input"
+                class="input-field"
+                placeholder="e.g. Stardust, Orion, Echo..."
+                maxlength="20"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                aria-label="Your call sign username"
+                aria-describedby="username-hint username-error"
+                aria-required="true"
+              />
+              <span class="input-field-counter" id="username-counter" aria-hidden="true">0 / 20</span>
+            </div>
+
+            <p class="input-hint" id="username-hint">
+              Letters, numbers, and spaces only. 3–20 characters.
+            </p>
+
+            <p class="input-error" id="username-error" role="alert" aria-live="assertive"></p>
+
+            <button
+              class="btn btn--launch"
+              id="btn-launch"
+              type="button"
+              aria-label="Launch — generate your rocket identity and enter the hub"
+            >
+              <span class="btn__icon btn__icon--left" aria-hidden="true">
+                <!-- Mini rocket SVG -->
+                <svg viewBox="0 0 20 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 2C10 2 6 7 6 13C6 15.5 7 17.8 8.6 19.4L10 22L11.4 19.4C13 17.8 14 15.5 14 13C14 7 10 2 10 2Z" fill="currentColor"/>
+                  <circle cx="10" cy="12" r="2" fill="#050d1a"/>
+                  <path d="M6 13C4.5 14 3 16 2.5 18L6 17" fill="currentColor" opacity="0.55"/>
+                  <path d="M14 13C15.5 14 17 16 17.5 18L14 17" fill="currentColor" opacity="0.55"/>
+                  <path d="M7.5 19C7.5 19 6 21 5 24L10 22.5L15 24C14 21 12.5 19 12.5 19" fill="#ff7a2f" opacity="0.85"/>
+                </svg>
+              </span>
+              <span class="btn__text">LAUNCH</span>
+              <span class="btn__ripple" aria-hidden="true"></span>
+            </button>
+
+          </div>
+
+        </div>
+        <!-- /callsign-card__body -->
+
+        <!-- Card footer: recovery link -->
+        <div class="callsign-card__footer">
+          <p class="callsign-card__footer-text">Have a previous identity?</p>
+          <button
+            class="btn-link"
+            id="btn-show-recovery"
+            type="button"
+            aria-label="Open identity recovery — restore with secret phrases"
+          >
+            Restore with secret phrases →
+          </button>
+        </div>
+
+      </div>
+      <!-- /callsign-card -->
+    </div>
+
+    <!-- Corner decorations -->
+    <div class="corner-deco corner-deco--tl" aria-hidden="true"></div>
+    <div class="corner-deco corner-deco--tr" aria-hidden="true"></div>
+    <div class="corner-deco corner-deco--bl" aria-hidden="true"></div>
+    <div class="corner-deco corner-deco--br" aria-hidden="true"></div>
+
+  </section>
+  <!-- /screen-username -->
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 3 · IDENTITY REVEAL                                 ║
+       ║  Shown after username is submitted and identity generated.  ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-identity"
+    class="screen"
+    data-screen="identity"
+    aria-label="Your generated identity credentials"
+    hidden
+  >
+
+    <canvas id="identity-canvas" aria-hidden="true"></canvas>
+    <div class="nebula nebula--purple" aria-hidden="true"></div>
+    <div class="nebula nebula--blue nebula--dim" aria-hidden="true"></div>
+
+    <!-- ── Identity card ── -->
+    <div class="identity-wrapper">
+      <div class="identity-card" role="main">
+
+        <!-- Top status strip -->
+        <div class="identity-card__strip" aria-hidden="true">
+          <span class="strip-text">IDENTITY CONFIRMED</span>
+          <span class="strip-dots">● ● ●</span>
+          <span class="strip-text">SECURE CHANNEL</span>
+        </div>
+
+        <!-- ── Rocket showcase + identity details ── -->
+        <div class="identity-showcase" aria-label="Your rocket identity">
+
+          <!-- Rocket avatar stage -->
+          <div class="identity-rocket-stage">
+            <div class="identity-rocket-glow"  aria-hidden="true"></div>
+            <div class="identity-rocket-orbit" aria-hidden="true">
+              <span class="orbit-dot" aria-hidden="true"></span>
+            </div>
+            <!-- JS injects the procedural SVG rocket here -->
+            <div
+              class="identity-rocket-preview"
+              id="identity-rocket-preview"
+              aria-label="Your procedurally generated rocket avatar"
+            ></div>
+          </div>
+
+          <!-- Identity text details -->
+          <div class="identity-details" aria-label="Identity details">
+            <div class="identity-detail-row">
+              <span class="identity-label">CALL SIGN</span>
+              <span class="identity-value" id="identity-username-display">—</span>
+            </div>
+            <div class="identity-detail-row">
+              <span class="identity-label">ROCKET ID</span>
+              <span class="identity-value identity-value--code" id="identity-rocket-id">RKT-000</span>
+            </div>
+            <div class="identity-detail-row">
+              <span class="identity-label">CHANNEL</span>
+              <span class="identity-value">Anonymous</span>
+            </div>
+            <div class="identity-detail-row">
+              <span class="identity-label">STATUS</span>
+              <span class="identity-value identity-value--status">
+                <span class="status-dot" aria-hidden="true"></span>
+                ACTIVE
+              </span>
+            </div>
+          </div>
+
+        </div>
+        <!-- /identity-showcase -->
+
+        <!-- Section divider -->
+        <div class="section-divider" aria-hidden="true">
+          <span class="section-divider__label">YOUR PRIVATE CREDENTIALS</span>
+        </div>
+
+        <!-- ── Communication Token ── -->
+        <div class="identity-token-section">
+          <div class="identity-token-header">
+            <span class="identity-label">COMMUNICATION TOKEN</span>
+            <button
+              class="btn-icon"
+              id="btn-copy-token"
+              type="button"
+              aria-label="Copy communication token to clipboard"
+              title="Copy token"
+            >
+              <!-- Copy icon -->
+              <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M10.5 5.5V3C10.5 2.17 9.83 1.5 9 1.5H3C2.17 1.5 1.5 2.17 1.5 3V9C1.5 9.83 2.17 10.5 3 10.5H5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="identity-token-display" aria-label="Your communication token">
+            <span class="token-prefix" aria-hidden="true">u_</span><span
+              class="token-value"
+              id="token-value-display"
+            >——————————————</span>
+          </div>
+
+          <p class="identity-token-info">
+            Share this token with others so they can send you private messages.
+          </p>
+        </div>
+
+        <!-- ── Secret Recovery Phrases ── -->
+        <div class="identity-phrases-section">
+
+          <div class="identity-phrases-header">
+            <span class="identity-label">SECRET RECOVERY PHRASES</span>
+            <button
+              class="btn-icon"
+              id="btn-copy-phrases"
+              type="button"
+              aria-label="Copy all recovery phrases to clipboard"
+              title="Copy phrases"
+            >
+              <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M10.5 5.5V3C10.5 2.17 9.83 1.5 9 1.5H3C2.17 1.5 1.5 2.17 1.5 3V9C1.5 9.83 2.17 10.5 3 10.5H5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Three phrase badges -->
+          <div class="identity-phrases" role="list" aria-label="Your three secret recovery phrases">
+            <div class="phrase-badge" role="listitem">
+              <span class="phrase-num" aria-label="Phrase number 1" aria-hidden="true">1</span>
+              <span class="phrase-word" id="identity-phrase-1">—</span>
+            </div>
+            <div class="phrase-badge" role="listitem">
+              <span class="phrase-num" aria-label="Phrase number 2" aria-hidden="true">2</span>
+              <span class="phrase-word" id="identity-phrase-2">—</span>
+            </div>
+            <div class="phrase-badge" role="listitem">
+              <span class="phrase-num" aria-label="Phrase number 3" aria-hidden="true">3</span>
+              <span class="phrase-word" id="identity-phrase-3">—</span>
+            </div>
+          </div>
+
+          <!-- Security warning -->
+          <div class="identity-warning" role="alert" aria-live="polite">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M8 2.5L14 13.5H2L8 2.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+              <path d="M8 6.5V9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <circle cx="8" cy="11.5" r="0.8" fill="currentColor"/>
+            </svg>
+            <span>
+              Write these phrases down now. Without them, you <strong>cannot</strong> restore your
+              private token. Phrases are <strong>never stored on any server</strong>.
+            </span>
+          </div>
+
+        </div>
+        <!-- /identity-phrases-section -->
+
+        <!-- Enter hub CTA -->
+        <button
+          class="btn btn--enter-hub"
+          id="btn-enter-hub"
+          type="button"
+          aria-label="Save credentials and enter the communication hub"
+        >
+          <span class="btn__text">ENTER HUB</span>
+          <span class="btn__icon btn__icon--right" aria-hidden="true">→</span>
+        </button>
+
+      </div>
+      <!-- /identity-card -->
+    </div>
+
+  </section>
+  <!-- /screen-identity -->
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 4 · DASHBOARD  (redesigned — clean 3-card layout)  ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-dashboard"
+    class="screen"
+    data-screen="dashboard"
+    aria-label="Alex communication hub dashboard"
+    hidden
+  >
+
+    <!-- Background canvas -->
+    <canvas id="dashboard-canvas" aria-hidden="true"></canvas>
+    <div class="nebula nebula--blue   nebula--subtle" aria-hidden="true"></div>
+    <div class="nebula nebula--purple nebula--subtle" aria-hidden="true"></div>
+
+    <!-- ── Identity FAB (floating action button, top-right) ── -->
+    <button
+      class="identity-fab"
+      id="btn-show-token-modal"
+      type="button"
+      aria-label="View your identity and token"
+      aria-haspopup="dialog"
+      aria-expanded="false"
+    >
+      <!-- Rocket avatar injected by JS -->
+      <div class="identity-fab__rocket" id="nav-rocket-avatar" aria-hidden="true"></div>
+      <!-- Pulse ring -->
+      <span class="identity-fab__pulse" aria-hidden="true"></span>
+    </button>
+
+    <!-- ── Dashboard Center Content ── -->
+    <main class="dash-center" role="main" id="dashboard-main">
+
+      <!-- Brand mark -->
+      <div class="dash-brand" aria-label="Alex">
+        <div class="dash-brand__logo" aria-hidden="true">
+          <svg viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="db-rkt" x1="24" y1="3" x2="24" y2="50" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#c8e8ff"/>
+                <stop offset="100%" stop-color="#4a9eff"/>
+              </linearGradient>
+              <linearGradient id="db-flame" x1="24" y1="42" x2="24" y2="56" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#ff9a3c"/>
+                <stop offset="100%" stop-color="#ff5c1a" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M24 3C24 3 16 13 16 26C16 31 17.8 35.5 21 39L24 44L27 39C30.2 35.5 32 31 32 26C32 13 24 3 24 3Z" fill="url(#db-rkt)"/>
+            <circle cx="24" cy="25" r="4.5" fill="#050d1a" opacity="0.8"/>
+            <circle cx="24" cy="25" r="2.5" fill="#0ef" opacity="0.7"/>
+            <path d="M16 26C13 27.5 10 30 9 35L16 33Z" fill="#4a9eff" opacity="0.5"/>
+            <path d="M32 26C35 27.5 38 30 39 35L32 33Z" fill="#4a9eff" opacity="0.5"/>
+            <path d="M20 39C18 43 16 49 14 54L24 51L34 54C32 49 30 43 28 39Z" fill="url(#db-flame)"/>
+          </svg>
+        </div>
+        <h1 class="dash-brand__name">ALEX</h1>
+        <p class="dash-brand__tagline">Anonymous Communication Hub</p>
+      </div>
+
+      <!-- Greeting -->
+      <p class="dash-greeting">
+        <span id="dashboard-greeting">Welcome,</span>
+        <span class="dash-greeting__name" id="dashboard-hero-username">—</span>
+      </p>
+
+      <!-- ── 3 Feature Tiles ── -->
+      <nav class="dash-tiles" role="navigation" aria-label="Communication features">
+
+        <!-- Chat tile -->
+        <button
+          class="dash-tile dash-tile--chat"
+          id="card-chat"
+          type="button"
+          data-target="screen-chat"
+          aria-label="Chat — anonymous real-time messaging"
+        >
+          <div class="dash-tile__glow" aria-hidden="true"></div>
+          <div class="dash-tile__icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="5" width="28" height="21" rx="4" stroke="currentColor" stroke-width="2"/>
+              <path d="M6 34L3 42L15 34" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 15H24M9 20H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <span class="dash-tile__label">Chat</span>
+          <span class="dash-tile__sub">Anonymous · Real-time</span>
+          <span class="dash-tile__arrow" aria-hidden="true">↗</span>
+        </button>
+
+        <!-- Call tile -->
+        <button
+          class="dash-tile dash-tile--call"
+          id="card-call"
+          type="button"
+          data-target="screen-call"
+          aria-label="Call — voice and video peer-to-peer"
+        >
+          <div class="dash-tile__glow" aria-hidden="true"></div>
+          <div class="dash-tile__icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="10" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/>
+              <path d="M27 17L37 12V28L27 23" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="15" cy="20" r="4" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <span class="dash-tile__label">Call</span>
+          <span class="dash-tile__sub">Voice · Video · P2P</span>
+          <span class="dash-tile__arrow" aria-hidden="true">↗</span>
+        </button>
+
+        <!-- Meet tile -->
+        <button
+          class="dash-tile dash-tile--meet"
+          id="card-meet"
+          type="button"
+          data-target="screen-meet"
+          aria-label="Meet — large meeting room up to 50 people"
+        >
+          <div class="dash-tile__glow" aria-hidden="true"></div>
+          <div class="dash-tile__icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2"  y="2"  width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="2"/>
+              <rect x="22" y="2"  width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="2"/>
+              <rect x="2"  y="22" width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="2"/>
+              <rect x="22" y="22" width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <span class="dash-tile__label">Meet</span>
+          <span class="dash-tile__sub">Up to 50 · Jitsi</span>
+          <span class="dash-tile__arrow" aria-hidden="true">↗</span>
+        </button>
+
+      </nav>
+      <!-- /dash-tiles -->
+
+      <!-- Private chat link (subtle, below tiles) -->
+      <div class="dash-private-link">
+        <button
+          class="btn-link-dim"
+          id="card-private"
+          type="button"
+          data-target="screen-private-chat"
+          aria-label="Open private P2P encrypted chat"
+        >
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="12" height="12">
+            <rect x="5" y="7" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M6.5 7V5C6.5 3.9 7.4 3 8.5 3C9.6 3 10.5 3.9 10.5 5V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Private Encrypted Chat
+        </button>
+      </div>
+
+    </main>
+    <!-- /dash-center -->
+
+    <!-- Status dot (bottom-center) -->
+    <div class="dash-status" aria-live="polite" aria-label="Connection status">
+      <span class="status-dot status-dot--sm" aria-hidden="true"></span>
+      <span class="dash-status__text" id="nav-status-text">Connected</span>
+    </div>
+
+    <!-- Hidden elements kept for JS compatibility -->
+    <span id="nav-username" style="display:none">—</span>
+    <span id="nav-rocket-id" style="display:none">RKT-000</span>
+
+  </section>
+  <!-- /screen-dashboard -->
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 5 · PUBLIC CHAT                                     ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-chat"
+    class="screen screen--chat"
+    data-screen="chat"
+    aria-label="Public anonymous chat room"
+    hidden
+  >
+    <div class="chat-layout">
+
+      <!-- ── Chat Header ── -->
+      <header class="chat-header" role="banner">
+        <div class="chat-header__left">
+          <button
+            class="btn-back"
+            id="btn-back-from-chat"
+            type="button"
+            aria-label="Return to dashboard"
+          >
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="chat-header__info">
+            <h2 class="chat-header__title">
+              <span class="chat-room-hash" aria-hidden="true">#</span><span
+                id="chat-room-display"
+              >general</span>
+            </h2>
+            <div class="chat-header__sub" aria-live="polite">
+              <span class="status-dot status-dot--sm" aria-hidden="true"></span>
+              <span id="chat-online-count">— online</span>
+            </div>
+          </div>
+        </div>
+        <div class="chat-header__right">
+          <div
+            class="conn-badge"
+            id="chat-connection-status"
+            role="status"
+            aria-live="polite"
+            aria-label="Chat connection status"
+          >
+            <span class="conn-dot conn-dot--connecting" aria-hidden="true"></span>
+            <span class="conn-text">Connecting...</span>
+          </div>
+          <button
+            class="btn-icon btn-icon--header"
+            id="btn-change-room"
+            type="button"
+            aria-label="Change chat room"
+            title="Change room"
+          >
+            <!-- Rooms / list icon -->
+            <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M3 5H15M3 9H15M3 13H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ── Room Join Panel (visible until room joined) ── -->
+      <div class="join-panel" id="chat-room-join-panel">
+        <div class="join-panel__content">
+          <div class="join-panel__icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="5" width="24" height="20" rx="3.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M7 32L4 40L14 32" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 14H22M9 18H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3 class="join-panel__title">Join a Chat Room</h3>
+          <p class="join-panel__desc">
+            Enter any room name to start talking anonymously. Anyone with the same name joins the same room.
+          </p>
+          <div class="join-panel__input-row">
+            <span class="input-field-prefix" aria-hidden="true">#</span>
+            <input
+              type="text"
+              id="chat-room-input"
+              class="input-field"
+              placeholder="general, study-group, class-a..."
+              maxlength="40"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              aria-label="Chat room name to join"
+              aria-describedby="chat-room-hint"
+            />
+          </div>
+          <p class="input-hint" id="chat-room-hint">
+            Letters, numbers, hyphens only.
+          </p>
+          <button
+            class="btn btn--primary"
+            id="btn-join-chat-room"
+            type="button"
+            aria-label="Join the chat room"
+          >
+            <span class="btn__text">JOIN ROOM</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Messages Area ── -->
+      <div class="chat-body" id="chat-body">
+
+        <div
+          class="chat-messages"
+          id="chat-messages"
+          role="log"
+          aria-label="Chat messages"
+          aria-live="polite"
+          aria-relevant="additions"
+          tabindex="0"
+        >
+          <!--
+            JS inserts messages here. Structures:
+
+            System message:
+            <div class="msg msg--system" role="listitem">
+              <span class="msg-sys-text">— You joined #general —</span>
+            </div>
+
+            Regular message (outgoing / incoming):
+            <div class="msg msg--outgoing | msg--incoming" data-msg-id="{id}" role="listitem">
+              <div class="msg__avatar" aria-hidden="true">
+                <div class="msg-rocket-mini">{SVG}</div>
+              </div>
+              <div class="msg__bubble">
+                <div class="msg__meta">
+                  <span class="msg__username">{username}</span>
+                  <span class="msg__rocket-id">{rkt-id}</span>
+                  <time class="msg__time" datetime="{iso}">{HH:MM}</time>
+                </div>
+                <p class="msg__text">{message}</p>
+              </div>
+            </div>
+          -->
+        </div>
+
+        <!-- Typing indicator (hidden until someone types) -->
+        <div
+          class="typing-indicator"
+          id="chat-typing-indicator"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        >
+          <div class="typing-dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="typing-text" id="chat-typing-text">Someone is typing...</span>
+        </div>
+
+      </div>
+      <!-- /chat-body -->
+
+      <!-- ── Message Input ── -->
+      <div class="chat-input-area" id="chat-input-area">
+        <div class="chat-input-wrapper">
+          <!-- User's tiny rocket avatar (JS injects) -->
+          <div class="chat-input-avatar" id="chat-input-avatar" aria-hidden="true"></div>
+
+          <div class="chat-textarea-wrap">
+            <textarea
+              id="chat-input"
+              class="chat-textarea"
+              placeholder="Message #general..."
+              rows="1"
+              maxlength="1000"
+              aria-label="Type a message. Press Enter to send, Shift+Enter for new line."
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="true"
+            ></textarea>
+          </div>
+
+          <button
+            class="btn-send"
+            id="btn-chat-send"
+            type="button"
+            aria-label="Send message"
+            disabled
+          >
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M18 10L3 3.5L6 10L3 16.5L18 10Z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+        <p class="chat-input-hint" aria-hidden="true">Enter to send · Shift+Enter for new line · 1000 chars max</p>
+      </div>
+
+    </div>
+    <!-- /chat-layout -->
+  </section>
+  <!-- /screen-chat -->
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 6 · PRIVATE CHAT (P2P WebRTC DataChannel)           ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-private-chat"
+    class="screen screen--chat"
+    data-screen="private-chat"
+    aria-label="Private peer-to-peer encrypted chat"
+    hidden
+  >
+    <div class="chat-layout">
+
+      <!-- ── Private Chat Header ── -->
+      <header class="chat-header chat-header--private" role="banner">
+        <div class="chat-header__left">
+          <button
+            class="btn-back"
+            id="btn-back-from-private"
+            type="button"
+            aria-label="Return to dashboard"
+          >
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="chat-header__info">
+            <h2 class="chat-header__title">
+              <!-- Lock icon -->
+              <svg class="header-icon-lock" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="2.5" y="7" width="11" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M4.5 7V5.5C4.5 3.57 6.07 2 8 2C9.93 2 11.5 3.57 11.5 5.5V7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              Private Chat
+            </h2>
+            <!-- Connection status (updates dynamically) -->
+            <div
+              class="chat-header__sub"
+              id="private-connection-status"
+              role="status"
+              aria-live="polite"
+            >
+              <span class="conn-dot conn-dot--idle" aria-hidden="true"></span>
+              <span class="conn-text">Not connected</span>
+            </div>
+          </div>
+        </div>
+        <!-- Peer info badge (JS shows this when connected) -->
+        <div class="chat-header__right">
+          <div
+            class="peer-badge"
+            id="private-peer-badge"
+            aria-label="Connected peer identity"
+            hidden
+          >
+            <div class="peer-badge__rocket" id="private-peer-rocket" aria-hidden="true">
+              <!-- Peer's tiny rocket injected by JS -->
+            </div>
+            <div class="peer-badge__info">
+              <span class="peer-badge__name"     id="private-peer-name">—</span>
+              <span class="peer-badge__rocket-id" id="private-peer-rocket-id">—</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── My Token Bar (always visible for sharing) ── -->
+      <div class="my-token-bar" aria-label="Your communication token">
+        <span class="my-token-bar__label" aria-hidden="true">YOUR TOKEN:</span>
+        <span class="my-token-bar__value" id="private-my-token-display">—</span>
+        <button
+          class="btn-icon"
+          id="btn-copy-my-token"
+          type="button"
+          aria-label="Copy your token to clipboard"
+          title="Copy my token"
+        >
+          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- ── Connect to Peer Panel ── -->
+      <div class="join-panel" id="private-connect-panel">
+        <div class="join-panel__content">
+          <div class="join-panel__icon join-panel__icon--private" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="14" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <circle cx="20" cy="20" r="7"  stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="20" cy="20" r="2.5" fill="currentColor"/>
+            </svg>
+          </div>
+          <h3 class="join-panel__title">Connect to a Peer</h3>
+          <p class="join-panel__desc">
+            Enter the communication token of the person you want to message privately.
+            Messages travel directly between devices — no server, no logs.
+          </p>
+          <div class="join-panel__input-row">
+            <span class="input-field-prefix" aria-hidden="true">u_</span>
+            <input
+              type="text"
+              id="private-token-input"
+              class="input-field"
+              placeholder="peer's token..."
+              maxlength="30"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              aria-label="Peer's communication token"
+              aria-describedby="private-token-hint private-token-error"
+            />
+          </div>
+          <p class="input-hint" id="private-token-hint">
+            Paste or type the full token your peer shared with you.
+          </p>
+          <p class="input-error" id="private-token-error" role="alert" aria-live="assertive"></p>
+          <button
+            class="btn btn--primary btn--private"
+            id="btn-connect-peer"
+            type="button"
+            aria-label="Connect to peer and open private chat"
+          >
+            <span class="btn__text">CONNECT</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Private Messages Area ── -->
+      <div class="chat-body" id="private-chat-body">
+        <div
+          class="chat-messages"
+          id="private-messages"
+          role="log"
+          aria-label="Private chat messages"
+          aria-live="polite"
+          aria-relevant="additions"
+          tabindex="0"
+        >
+          <!-- Messages injected by JS (same structure as public chat) -->
+        </div>
+
+        <div
+          class="typing-indicator"
+          id="private-typing-indicator"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        >
+          <div class="typing-dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="typing-text">Peer is typing...</span>
+        </div>
+      </div>
+
+      <!-- ── Private Input ── -->
+      <div class="chat-input-area" id="private-input-area">
+        <div class="chat-input-wrapper">
+          <div class="chat-input-avatar" id="private-input-avatar" aria-hidden="true"></div>
+          <div class="chat-textarea-wrap">
+            <textarea
+              id="private-chat-input"
+              class="chat-textarea"
+              placeholder="Private message..."
+              rows="1"
+              maxlength="1000"
+              aria-label="Type a private message"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="true"
+              disabled
+            ></textarea>
+          </div>
+          <button
+            class="btn-send"
+            id="btn-private-send"
+            type="button"
+            aria-label="Send private message"
+            disabled
+          >
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M18 10L3 3.5L6 10L3 16.5L18 10Z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+        <p class="chat-input-hint" aria-hidden="true">End-to-end via WebRTC DataChannel · messages are not stored</p>
+      </div>
+
+    </div>
+    <!-- /chat-layout -->
+  </section>
+  <!-- /screen-private-chat -->
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 7 · VOICE & VIDEO CALL                              ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-call"
+    class="screen screen--call"
+    data-screen="call"
+    aria-label="Voice and video calls"
+    hidden
+  >
+
+    <!-- ── Call Header ── -->
+    <header class="call-header" role="banner">
+      <div class="call-header__left">
+        <button
+          class="btn-back btn-back--call"
+          id="btn-back-from-call"
+          type="button"
+          aria-label="Return to dashboard"
+        >
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div>
+          <h2 class="call-header__title" id="call-title-text">Voice &amp; Video</h2>
+          <div
+            class="conn-badge"
+            id="call-status"
+            role="status"
+            aria-live="polite"
+            aria-label="Call status"
+          >
+            <span class="conn-dot conn-dot--idle" aria-hidden="true"></span>
+            <span class="conn-text">Idle</span>
+          </div>
+        </div>
+      </div>
+      <div class="call-header__right">
+        <span class="call-room-chip" id="call-room-display" aria-label="Call room name"></span>
+        <span
+          class="call-pax-chip"
+          id="call-participant-count"
+          aria-live="polite"
+          aria-label="Participant count"
+        >0 / 4</span>
+      </div>
+    </header>
+
+    <!-- ──────────────────────────────────────────────
+         CALL SETUP PANEL
+    ────────────────────────────────────────────── -->
+    <div class="call-setup-panel" id="call-setup">
+      <div class="call-setup-content">
+
+        <div class="call-setup-icon" aria-hidden="true">
+          <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="11" width="32" height="26" rx="4" stroke="currentColor" stroke-width="2"/>
+            <path d="M36 21L48 15V37L36 31" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="20" cy="24" r="5.5" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+
+        <h3 class="call-setup-title">Start or Join a Call</h3>
+        <p class="call-setup-desc">
+          Enter a room name and share it with others. Supports up to 4 simultaneous participants via WebRTC.
+        </p>
+
+        <!-- Call mode selector -->
+        <div class="call-mode-selector" role="group" aria-label="Choose call type">
+          <button
+            class="mode-btn mode-btn--active"
+            id="mode-video"
+            type="button"
+            data-mode="video"
+            aria-pressed="true"
+            aria-label="Video call mode"
+          >
+            <svg viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M13 5L17 3V11L13 9" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            Video Call
+          </button>
+          <button
+            class="mode-btn"
+            id="mode-audio"
+            type="button"
+            data-mode="audio"
+            aria-pressed="false"
+            aria-label="Voice-only call mode"
+          >
+            <svg viewBox="0 0 16 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="5" y="1" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M2 9C2 12.31 4.69 15 8 15C11.31 15 14 12.31 14 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M8 15V17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Voice Only
+          </button>
+        </div>
+
+        <!-- Room name input -->
+        <div class="call-setup-input-row">
+          <input
+            type="text"
+            id="call-room-input"
+            class="input-field"
+            placeholder="call room name..."
+            maxlength="40"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            aria-label="Call room name"
+            aria-describedby="call-room-error"
+          />
+        </div>
+
+        <p class="input-error" id="call-room-error" role="alert" aria-live="assertive"></p>
+
+        <button
+          class="btn btn--primary btn--call"
+          id="btn-join-call"
+          type="button"
+          aria-label="Join the call room"
+        >
+          <span class="btn__text">JOIN CALL</span>
+        </button>
+
+      </div>
+    </div>
+    <!-- /call-setup -->
+
+    <!-- ──────────────────────────────────────────────
+         ACTIVE CALL INTERFACE (hidden until joined)
+    ────────────────────────────────────────────── -->
+    <div class="call-interface" id="call-interface" hidden>
+
+      <!-- ── Video grid ── -->
+      <div
+        class="video-grid"
+        id="video-grid"
+        role="group"
+        aria-label="Call participants video grid"
+      >
+
+        <!-- Local video tile (always present) -->
+        <div
+          class="video-tile video-tile--local"
+          id="local-video-tile"
+          aria-label="Your video"
+        >
+          <!-- Camera stream -->
+          <video
+            id="local-video"
+            class="video-tile__stream"
+            autoplay
+            muted
+            playsinline
+            aria-label="Your camera feed"
+          ></video>
+
+          <!-- Overlay: name + badges -->
+          <div class="video-tile__overlay">
+            <div class="video-tile__rocket" id="local-call-rocket" aria-hidden="true">
+              <!-- Tiny rocket injected by JS -->
+            </div>
+            <div class="video-tile__info">
+              <span class="video-tile__name" id="local-call-username">You</span>
+              <div class="video-tile__badges" aria-label="Media status">
+                <span class="media-badge media-badge--mic" id="local-mic-badge" aria-label="Microphone active">
+                  <svg viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="4" y="1" width="6" height="9" rx="3" stroke="currentColor" stroke-width="1.2"/>
+                    <path d="M1.5 8C1.5 11.04 4.07 13.5 7 13.5C9.93 13.5 12.5 11.04 12.5 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    <path d="M7 13.5V15.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="media-badge media-badge--cam" id="local-cam-badge" aria-label="Camera active">
+                  <svg viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="1" y="1" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                    <path d="M11 4.5L15 3V9L11 7.5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- No-video fallback: shows rocket avatar -->
+          <div class="video-tile__no-video" id="local-no-video" hidden aria-hidden="true">
+            <div class="no-video-avatar" id="local-call-avatar">
+              <!-- Rocket injected by JS -->
+            </div>
+          </div>
+
+          <!-- LOCAL badge -->
+          <span class="video-tile__you-badge" aria-hidden="true">YOU</span>
+        </div>
+
+        <!-- Remote video tiles are dynamically injected here by JS.
+             Template structure that JS follows:
+
+          <div class="video-tile video-tile--remote" id="remote-tile-{peerId}"
+               aria-label="Video: {peerName}">
+            <video class="video-tile__stream" autoplay playsinline></video>
+            <div class="video-tile__overlay">
+              <div class="video-tile__rocket" aria-hidden="true"></div>
+              <div class="video-tile__info">
+                <span class="video-tile__name">{peerName}</span>
+                <div class="video-tile__badges">
+                  <span class="media-badge media-badge--mic" aria-label="Mic on/off"></span>
+                  <span class="media-badge media-badge--cam" aria-label="Cam on/off"></span>
+                </div>
+              </div>
+            </div>
+            <div class="video-tile__no-video" hidden aria-hidden="true">
+              <div class="no-video-avatar"></div>
+            </div>
+            <div class="video-tile__connecting" aria-live="polite">
+              <div class="connecting-spinner"></div>
+              <span>Connecting...</span>
+            </div>
+          </div>
+        -->
+
+        <!-- Empty-state overlay (shown when waiting for first peer) -->
+        <div class="video-grid__empty" id="video-grid-empty">
+          <div class="empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="19" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 3"/>
+              <path d="M24 14V24L29 29" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <p class="empty-text">Waiting for others to join...</p>
+          <p class="empty-sub">
+            Share the room:
+            <strong id="call-empty-room-name" class="empty-room-name"></strong>
+          </p>
+        </div>
+
+      </div>
+      <!-- /video-grid -->
+
+      <!-- ── Call Controls Bar ── -->
+      <div class="call-controls" role="toolbar" aria-label="Call controls">
+
+        <!-- Left group -->
+        <div class="call-controls__group">
+
+          <!-- Mute / Unmute mic -->
+          <button
+            class="ctrl-btn"
+            id="btn-toggle-mic"
+            type="button"
+            aria-label="Mute microphone"
+            aria-pressed="false"
+            title="Toggle microphone"
+          >
+            <!-- Mic ON (shown when mic is active) -->
+            <svg class="ctrl-icon ctrl-icon--on" viewBox="0 0 24 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="7" y="1" width="10" height="14" rx="5" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M4 12C4 16.42 7.58 20 12 20C16.42 20 20 16.42 20 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M12 20V24M9 24H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <!-- Mic OFF (shown when muted) -->
+            <svg class="ctrl-icon ctrl-icon--off" viewBox="0 0 24 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" hidden>
+              <rect x="7" y="1" width="10" height="14" rx="5" stroke="currentColor" stroke-width="1.8" opacity="0.4"/>
+              <path d="M4 12C4 16.42 7.58 20 12 20C16.42 20 20 16.42 20 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.4"/>
+              <path d="M12 20V24M9 24H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.4"/>
+              <line x1="3" y1="3" x2="21" y2="23" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <span class="ctrl-label">Mic</span>
+          </button>
+
+          <!-- Toggle camera -->
+          <button
+            class="ctrl-btn"
+            id="btn-toggle-camera"
+            type="button"
+            aria-label="Turn off camera"
+            aria-pressed="false"
+            title="Toggle camera"
+          >
+            <svg class="ctrl-icon ctrl-icon--on" viewBox="0 0 26 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="1" y="1" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M19 7L25 4V16L19 13" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+            <svg class="ctrl-icon ctrl-icon--off" viewBox="0 0 26 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" hidden>
+              <rect x="1" y="1" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8" opacity="0.4"/>
+              <path d="M19 7L25 4V16L19 13" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" opacity="0.4"/>
+              <line x1="2" y1="2" x2="24" y2="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <span class="ctrl-label">Camera</span>
+          </button>
+
+          <!-- Screen share -->
+          <button
+            class="ctrl-btn"
+            id="btn-toggle-screen"
+            type="button"
+            aria-label="Share your screen"
+            aria-pressed="false"
+            title="Share screen"
+          >
+            <svg class="ctrl-icon ctrl-icon--on" viewBox="0 0 26 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="1" y="1" width="24" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M9 21H17M13 17V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M10 11L13 8L16 11M13 8V14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg class="ctrl-icon ctrl-icon--off" viewBox="0 0 26 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" hidden>
+              <rect x="1" y="1" width="24" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8" opacity="0.4"/>
+              <path d="M9 21H17M13 17V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.4"/>
+              <line x1="2" y1="2" x2="24" y2="18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <span class="ctrl-label">Screen</span>
+          </button>
+
+        </div>
+        <!-- /left group -->
+
+        <!-- CENTER: End call (highlighted red) -->
+        <button
+          class="ctrl-btn ctrl-btn--end"
+          id="btn-end-call"
+          type="button"
+          aria-label="End call and return to setup"
+          title="End call"
+        >
+          <svg viewBox="0 0 28 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M2 14C4 11 8 9.5 14 9.5C20 9.5 24 11 26 14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M4 6C7 4 10 3 14 3C18 3 21 4 24 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+            <line x1="4"  y1="4"  x2="24" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="ctrl-label">End</span>
+        </button>
+
+        <!-- Right group -->
+        <div class="call-controls__group">
+
+          <!-- Toggle participants panel -->
+          <button
+            class="ctrl-btn"
+            id="btn-toggle-participants"
+            type="button"
+            aria-label="Show participants"
+            aria-pressed="false"
+            aria-expanded="false"
+            aria-controls="participants-sidebar"
+            title="Participants"
+          >
+            <svg class="ctrl-icon ctrl-icon--on" viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="9" cy="7" r="3.5" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="18" cy="8" r="3"   stroke="currentColor" stroke-width="1.8"/>
+              <path d="M2 19C2 16.24 5.13 14 9 14C12.87 14 16 16.24 16 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M19 14C21.21 14 23 15.57 23 17.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <span class="ctrl-label">People</span>
+            <span class="ctrl-count" id="ctrl-pax-count" aria-hidden="true">1</span>
+          </button>
+
+          <!-- In-call chat toggle -->
+          <button
+            class="ctrl-btn"
+            id="btn-call-chat-toggle"
+            type="button"
+            aria-label="Toggle in-call chat"
+            aria-pressed="false"
+            aria-expanded="false"
+            aria-controls="call-chat-sidebar"
+            title="In-call chat"
+          >
+            <svg class="ctrl-icon ctrl-icon--on" viewBox="0 0 24 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M3 3H21C22.1 3 23 3.9 23 5V15C23 16.1 22.1 17 21 17H13L8 22V17H3C1.9 17 1 16.1 1 15V5C1 3.9 1.9 3 3 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="M6 8H18M6 12H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <span class="ctrl-label">Chat</span>
+          </button>
+
+        </div>
+        <!-- /right group -->
+
+      </div>
+      <!-- /call-controls -->
+
+      <!-- ── Participants Sidebar ── -->
+      <aside
+        class="call-sidebar"
+        id="participants-sidebar"
+        aria-label="Participants list"
+        hidden
+      >
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">
+            Participants
+            <span id="participants-count" aria-live="polite">(1)</span>
+          </h3>
+          <button
+            class="btn-icon"
+            id="btn-close-participants"
+            type="button"
+            aria-label="Close participants panel"
+          >
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <ul
+          class="participants-list"
+          id="participants-list"
+          role="list"
+          aria-label="Call participants"
+        >
+          <!--
+            JS injects items:
+            <li class="participant-item" role="listitem">
+              <div class="participant-rocket" aria-hidden="true"></div>
+              <div class="participant-info">
+                <span class="participant-name">{name}</span>
+                <span class="participant-id">{RKT-ID}</span>
+              </div>
+              <div class="participant-status">
+                <span class="media-badge media-badge--mic" aria-label="Mic on"></span>
+                <span class="media-badge media-badge--cam media-badge--off" aria-label="Cam off"></span>
+              </div>
+            </li>
+          -->
+        </ul>
+      </aside>
+
+      <!-- ── In-Call Chat Sidebar ── -->
+      <aside
+        class="call-sidebar call-sidebar--chat"
+        id="call-chat-sidebar"
+        aria-label="In-call chat"
+        hidden
+      >
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">In-Call Chat</h3>
+          <button
+            class="btn-icon"
+            id="btn-close-call-chat"
+            type="button"
+            aria-label="Close chat panel"
+          >
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div
+          class="call-chat-messages"
+          id="call-chat-messages"
+          role="log"
+          aria-label="In-call chat messages"
+          aria-live="polite"
+        ></div>
+        <div class="call-chat-input-row">
+          <input
+            type="text"
+            id="call-chat-input"
+            class="input-field input-field--small"
+            placeholder="Message in call..."
+            maxlength="500"
+            autocomplete="off"
+            aria-label="In-call chat message"
+          />
+          <button
+            class="btn-send btn-send--sm"
+            id="btn-call-chat-send"
+            type="button"
+            aria-label="Send in-call message"
+          >
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M14 8L2 2.5L5 8L2 13.5L14 8Z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+      </aside>
+
+    </div>
+    <!-- /call-interface -->
+
+  </section>
+  <!-- /screen-call -->
+
+
+  <!-- ╔═══════════════════════════════════════════════════════════════╗
+       ║  SCREEN 8 · MEETING ROOM (Jitsi Meet)                       ║
+       ╚═══════════════════════════════════════════════════════════════╝ -->
+  <section
+    id="screen-meet"
+    class="screen screen--meet"
+    data-screen="meet"
+    aria-label="Large meeting room powered by Jitsi"
+    hidden
+  >
+
+    <!-- ── Meet Header ── -->
+    <header class="call-header call-header--meet" role="banner">
+      <div class="call-header__left">
+        <button
+          class="btn-back btn-back--call"
+          id="btn-back-from-meet"
+          type="button"
+          aria-label="Return to dashboard"
+        >
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M13 5L8 10L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div>
+          <h2 class="call-header__title">Meeting Room</h2>
+          <div class="call-header__sub">
+            <span class="feature-tag">Powered by Jitsi · Up to 50 participants</span>
+          </div>
+        </div>
+      </div>
+      <div class="call-header__right">
+        <span class="call-room-chip" id="meet-room-display" aria-label="Meeting room name"></span>
+      </div>
+    </header>
+
+    <!-- ── Meeting Setup ── -->
+    <div class="call-setup-panel" id="meet-setup">
+      <div class="call-setup-content">
+
+        <div class="call-setup-icon call-setup-icon--meet" aria-hidden="true">
+          <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2"  y="2"  width="21" height="21" rx="3" stroke="currentColor" stroke-width="2"/>
+            <rect x="29" y="2"  width="21" height="21" rx="3" stroke="currentColor" stroke-width="2"/>
+            <rect x="2"  y="29" width="21" height="21" rx="3" stroke="currentColor" stroke-width="2"/>
+            <rect x="29" y="29" width="21" height="21" rx="3" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+
+        <h3 class="call-setup-title">Start a Meeting</h3>
+        <p class="call-setup-desc">
+          Create or join a meeting room. Share the room name — up to 50 people can join at once.
+          Perfect for classrooms, study groups, and team meetings.
+        </p>
+
+        <!-- Meeting room name -->
+        <div class="call-setup-input-row">
+          <input
+            type="text"
+            id="meet-room-input"
+            class="input-field"
+            placeholder="e.g. class-physics, study-group-b..."
+            maxlength="50"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            aria-label="Meeting room name"
+            aria-describedby="meet-room-hint meet-room-error"
+          />
+        </div>
+        <p class="input-hint" id="meet-room-hint">Use letters, numbers, and hyphens only.</p>
+        <p class="input-error" id="meet-room-error" role="alert" aria-live="assertive"></p>
+
+        <!-- Meeting options -->
+        <fieldset class="meet-options" aria-label="Meeting options">
+          <legend class="meet-options__legend">Start with:</legend>
+          <label class="toggle-option">
+            <input
+              type="checkbox"
+              id="meet-opt-video"
+              checked
+              aria-label="Start meeting with video enabled"
+            />
+            <span class="toggle-option__knob" aria-hidden="true"></span>
+            <span class="toggle-option__label">Video on</span>
+          </label>
+          <label class="toggle-option">
+            <input
+              type="checkbox"
+              id="meet-opt-audio"
+              checked
+              aria-label="Start meeting with audio enabled"
+            />
+            <span class="toggle-option__knob" aria-hidden="true"></span>
+            <span class="toggle-option__label">Audio on</span>
+          </label>
+        </fieldset>
+
+        <button
+          class="btn btn--primary btn--meet"
+          id="btn-join-meet"
+          type="button"
+          aria-label="Launch the meeting room"
+        >
+          <span class="btn__text">LAUNCH MEETING</span>
+        </button>
+
+        <p class="meet-powered-by" aria-label="Powered by Jitsi Meet">
+          <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.2"/>
+          </svg>
+          Powered by Jitsi Meet — open source, no accounts needed
+        </p>
+
+      </div>
+    </div>
+    <!-- /meet-setup -->
+
+    <!-- ── Jitsi Container (shown after joining) ── -->
+    <div class="jitsi-wrapper" id="jitsi-wrapper" hidden>
+
+      <!-- Jitsi iFrame is injected here by app.js using External API -->
+      <div
+        class="jitsi-container"
+        id="jitsi-container"
+        aria-label="Jitsi Meet video conference"
+      ></div>
+
+      <!-- Leave overlay -->
+      <div class="jitsi-leave-bar" role="complementary" aria-label="Meeting controls overlay">
+        <button
+          class="btn btn--danger"
+          id="btn-leave-meet"
+          type="button"
+          aria-label="Leave meeting and return to dashboard"
+        >
+          ← Leave Meeting
+        </button>
+        <span class="jitsi-room-label">
+          Room: <strong id="jitsi-room-display"></strong>
+        </span>
+      </div>
+
+    </div>
+    <!-- /jitsi-wrapper -->
+
+  </section>
+  <!-- /screen-meet -->
+
+
+</div>
+<!-- /#app -->
+
+
+<!-- ████████████████████████████████████████████████████████████████
+     GLOBAL OVERLAYS & MODALS
+     These live OUTSIDE #app so they render on top of all screens.
+█████████████████████████████████████████████████████████████████ -->
+
+
+<!-- ──────────────────────────────────────────────────────────────────
+     MODAL: YOUR IDENTITY (Token + Phrases viewer, shown from nav)
+────────────────────────────────────────────────────────────────── -->
+<div
+  class="modal-overlay"
+  id="modal-token"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-token-title"
+  aria-describedby="modal-token-desc"
+  hidden
+>
+  <div class="modal">
+
+    <div class="modal__header">
+      <h3 class="modal__title" id="modal-token-title">Your Identity</h3>
+      <button
+        class="btn-icon modal__close"
+        id="btn-close-token-modal"
+        type="button"
+        aria-label="Close identity modal"
+      >
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal__body" id="modal-token-desc">
+
+      <!-- Small rocket preview -->
+      <div
+        class="modal-rocket-preview"
+        id="modal-rocket-preview"
+        aria-hidden="true"
+      ></div>
+
+      <!-- Identity info rows -->
+      <div class="modal-rows">
+        <div class="modal-row">
+          <span class="modal-label">CALL SIGN</span>
+          <span class="modal-value" id="modal-username">—</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-label">ROCKET ID</span>
+          <span class="modal-value modal-value--code" id="modal-rocket-id">—</span>
+        </div>
+        <div class="modal-row modal-row--token">
+          <span class="modal-label">TOKEN</span>
+          <div class="modal-token-group">
+            <span class="modal-value modal-value--token" id="modal-token-value">—</span>
+            <button
+              class="btn-icon"
+              id="btn-modal-copy-token"
+              type="button"
+              aria-label="Copy token to clipboard"
+              title="Copy token"
+            >
+              <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="4.5" y="4.5" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2"/>
+                <path d="M9.5 4.5V3C9.5 2.45 9.05 2 8.5 2H2C1.45 2 1 2.45 1 3V9.5C1 10.05 1.45 10.5 2 10.5H4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="modal-row modal-row--phrases">
+          <span class="modal-label">PHRASES</span>
+          <div class="modal-phrases-group">
+            <span class="phrase-chip" id="modal-phrase-1">—</span>
+            <span class="phrase-chip" id="modal-phrase-2">—</span>
+            <span class="phrase-chip" id="modal-phrase-3">—</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <!-- /modal__body -->
+
+    <div class="modal__footer">
+      <button
+        class="btn btn--ghost btn--sm"
+        id="btn-modal-reset"
+        type="button"
+        aria-label="Reset your identity"
+      >RESET IDENTITY</button>
+      <button
+        class="btn btn--primary btn--sm"
+        id="btn-modal-close-confirm"
+        type="button"
+        aria-label="Close this modal"
+      >CLOSE</button>
+    </div>
+
+  </div>
+</div>
+<!-- /modal-token -->
+
+
+<!-- ──────────────────────────────────────────────────────────────────
+     MODAL: IDENTITY RECOVERY (Restore from 3 secret phrases)
+────────────────────────────────────────────────────────────────── -->
+<div
+  class="modal-overlay"
+  id="modal-recovery"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-recovery-title"
+  aria-describedby="modal-recovery-desc"
+  hidden
+>
+  <div class="modal">
+
+    <div class="modal__header">
+      <h3 class="modal__title" id="modal-recovery-title">Restore Identity</h3>
+      <button
+        class="btn-icon modal__close"
+        id="btn-close-recovery-modal"
+        type="button"
+        aria-label="Close recovery modal"
+      >
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal__body" id="modal-recovery-desc">
+      <p class="modal__description">
+        Enter your three secret phrases in order to restore your communication token.
+        Recovery is performed entirely on your device — no data is sent to any server.
+      </p>
+
+      <div class="recovery-inputs" role="group" aria-label="Enter your three recovery phrases">
+
+        <div class="recovery-input-row">
+          <span class="phrase-num" aria-hidden="true">1</span>
+          <input
+            type="text"
+            id="recovery-phrase-1"
+            class="input-field input-field--recovery"
+            placeholder="first phrase"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            aria-label="First recovery phrase"
+          />
+        </div>
+
+        <div class="recovery-input-row">
+          <span class="phrase-num" aria-hidden="true">2</span>
+          <input
+            type="text"
+            id="recovery-phrase-2"
+            class="input-field input-field--recovery"
+            placeholder="second phrase"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            aria-label="Second recovery phrase"
+          />
+        </div>
+
+        <div class="recovery-input-row">
+          <span class="phrase-num" aria-hidden="true">3</span>
+          <input
+            type="text"
+            id="recovery-phrase-3"
+            class="input-field input-field--recovery"
+            placeholder="third phrase"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+            aria-label="Third recovery phrase"
+          />
+        </div>
+
+      </div>
+
+      <p class="input-error" id="recovery-error" role="alert" aria-live="assertive"></p>
+    </div>
+
+    <div class="modal__footer">
+      <button
+        class="btn btn--ghost btn--sm"
+        id="btn-cancel-recovery"
+        type="button"
+        aria-label="Cancel identity recovery"
+      >CANCEL</button>
+      <button
+        class="btn btn--primary btn--sm"
+        id="btn-recover-identity"
+        type="button"
+        aria-label="Restore identity from phrases"
+      >RESTORE</button>
+    </div>
+
+  </div>
+</div>
+<!-- /modal-recovery -->
+
+
+<!-- ──────────────────────────────────────────────────────────────────
+     MODAL: CONFIRM IDENTITY RESET
+────────────────────────────────────────────────────────────────── -->
+<div
+  class="modal-overlay"
+  id="modal-confirm-reset"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-reset-title"
+  aria-describedby="modal-reset-desc"
+  hidden
+>
+  <div class="modal modal--compact">
+
+    <div class="modal__header">
+      <div class="modal__warning-icon" aria-hidden="true">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 3L18 17H2L10 3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M10 8V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="10" cy="14.5" r="0.9" fill="currentColor"/>
+        </svg>
+      </div>
+      <h3 class="modal__title" id="modal-reset-title">Reset Identity?</h3>
+    </div>
+
+    <div class="modal__body" id="modal-reset-desc">
+      <p class="modal__description">
+        This will permanently erase your local rocket identity, communication token, and recovery phrases.
+        <strong>This cannot be undone</strong> unless you have your phrases saved.
+      </p>
+    </div>
+
+    <div class="modal__footer">
+      <button
+        class="btn btn--ghost btn--sm"
+        id="btn-cancel-reset"
+        type="button"
+        aria-label="Cancel — keep my identity"
+      >CANCEL</button>
+      <button
+        class="btn btn--danger btn--sm"
+        id="btn-confirm-reset"
+        type="button"
+        aria-label="Confirm — permanently reset identity"
+      >RESET</button>
+    </div>
+
+  </div>
+</div>
+<!-- /modal-confirm-reset -->
+
+
+<!-- ──────────────────────────────────────────────────────────────────
+     TOAST NOTIFICATION CONTAINER
+     JS injects .toast elements here. They auto-dismiss after 4s.
+────────────────────────────────────────────────────────────────── -->
+<div
+  class="toast-container"
+  id="toast-container"
+  role="region"
+  aria-label="Notifications"
+  aria-live="polite"
+  aria-atomic="false"
+>
+  <!--
+    JS-injected toast structure:
+
+    <div class="toast toast--success | toast--error | toast--info | toast--warn"
+         role="status" aria-atomic="true">
+      <div class="toast__icon" aria-hidden="true">
+        SVG icon here
+      </div>
+      <p class="toast__text">{message}</p>
+      <button class="toast__close" type="button" aria-label="Dismiss">
+        <svg>×</svg>
+      </button>
+    </div>
+  -->
+</div>
+
+
+<!-- ──────────────────────────────────────────────────────────────────
+     CUSTOM CURSOR (desktop only, hidden on touch devices via CSS)
+────────────────────────────────────────────────────────────────── -->
+<div class="cursor-dot"  id="cursor-dot"  aria-hidden="true"></div>
+<div class="cursor-ring" id="cursor-ring" aria-hidden="true"></div>
+
+
+<!-- ████████████████████████████████████████████████████████████████
+     NOSCRIPT FALLBACK
+█████████████████████████████████████████████████████████████████ -->
+<noscript>
+  <div style="
+    position:fixed;inset:0;
+    background:#050d1a;
+    color:#e8f4ff;
+    font-family:monospace;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:2rem;
+    z-index:99999;
+  ">
+    <div>
+      <p style="font-size:2rem;margin-bottom:1rem;">🚀</p>
+      <p style="font-size:1.2rem;font-weight:bold;margin-bottom:0.5rem;">Alex requires JavaScript</p>
+      <p>Please enable JavaScript in your browser to use the anonymous communication hub.</p>
+    </div>
+  </div>
+</noscript>
+
+
+<!-- ████████████████████████████████████████████████████████████████
+     EXTERNAL SCRIPTS
+     Load order: Supabase → app.js
+     Jitsi is loaded dynamically by app.js only when needed.
+█████████████████████████████████████████████████████████████████ -->
+
+<!-- Supabase JS v2 (UMD build — exposes window.supabase) -->
+<script
+  src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"
+  crossorigin="anonymous"
+  onerror="console.error('Supabase CDN failed to load.')"
+></script>
+
+<!--
+  Jitsi Meet External API is NOT loaded here.
+  app.js loads it on demand when the user enters a meeting room:
+
+    const script = document.createElement('script');
+    script.src   = 'https://meet.jit.si/external_api.js';
+    script.async = true;
+    document.head.appendChild(script);
+-->
+
+<!-- Main application bundle (all JS in one file per project spec) -->
+<script src="js/app.js" defer></script>
+
+</body>
+</html>
