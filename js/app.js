@@ -43,6 +43,10 @@ const CONFIG = {
   SUPABASE_URL:      'https://hlsxvsmraineuxicmkro.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhsc3h2c21yYWluZXV4aWNta3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwODE1ODEsImV4cCI6MjA4ODY1NzU4MX0.9VfDVjECzX2WAzO_ruMkezWqLMcihc6iJVJLddX6Ys0',
 
+  /* ── Web Push VAPID (fill in after running: npx web-push generate-vapid-keys) ── */
+  VAPID_PUBLIC_KEY:  'YOUR_VAPID_PUBLIC_KEY_HERE',
+  PUSH_FUNCTION_URL: 'https://hlsxvsmraineuxicmkro.supabase.co/functions/v1/send-push',
+
   /* ── Jitsi ────────────────────────────────────────────────── */
   JITSI_DOMAIN: 'meet.jit.si',
 
@@ -1668,18 +1672,36 @@ function _initPrivateChatScreen() {
     _showChatPanel(false);
   }
 
-  /* Wire existing chat actions */
-  _onclick('btn-export-chat', () => { _closeHamburger(); _handleExportChat(); });
-  _onclick('btn-clear-chat',  () => { _closeHamburger(); _handleClearChat(); });
+  /* Handle notification tap → open specific room */
+  if (STATE._pendingRoomOpen) {
+    const { roomId } = STATE._pendingRoomOpen;
+    STATE._pendingRoomOpen = null;
+    if (roomId) setTimeout(() => _openRoomConv(roomId), 300);
+  }
 
-  /* Hamburger menu toggle */
-  _onclick('btn-chat-hamburger', _toggleHamburger);
-  /* Close hamburger when clicking outside */
-  document.addEventListener('pointerdown', _onHamburgerOutsideClick, { passive: true });
+  /* Request notification permission (non-intrusive, first time only) */
+  if (Notification.permission === 'default') {
+    setTimeout(_promptPushPermission, 2500);
+  }
+
+  /* Wire existing chat actions */
+  _onclick('btn-export-chat', _handleExportChat);
+  _onclick('btn-clear-chat',  _handleClearChat);
 
   /* Wire call buttons */
   _initRoomCallButtons();
   _setCallButtonsEnabled(STATE.privateChat.connected);
+
+  /* Wire notification settings panel */
+  _initNotifSettings();
+  _onclick('btn-notif-settings-toggle', () => {
+    const panel = $('notif-settings-panel');
+    const btn   = $('btn-notif-settings-toggle');
+    if (!panel) return;
+    const expanded = !panel.hidden;
+    panel.hidden = expanded;
+    btn?.setAttribute('aria-expanded', String(!expanded));
+  });
 
   /* Wire file attachment */
   _onclick('btn-attach-file', () => { if (!STATE.privateChat.connected) return; $('file-input-hidden')?.click(); });
@@ -1820,9 +1842,7 @@ async function _joinRoomChat(roomId, password) {
 
   /* ── Message handler ── */
   sigCh.on('broadcast', { event: 'room-msg' }, ({ payload }) => {
-    /* Allow text (has .message), voice (has .voiceData), and file (has .fileData) */
-    if (!payload?.id) return;
-    if (!payload.message && !payload.voiceData && !payload.fileData) return;
+    if (!payload?.id || !payload?.message) return;
     _onRoomIncomingMessage(payload);
   });
 
@@ -1916,6 +1936,8 @@ async function _joinRoomChat(roomId, password) {
     if (status === 'SUBSCRIBED') {
       /* Track my own presence */
       await sigCh.track(myMeta).catch(() => {});
+      /* Save push subscription so peer can notify us when we're away */
+      await _savePushSubscription(channelName);
     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
       _setConnBadge('private-connection-status', 'error', 'Connection error');
       showToast('Room connection failed.', 'error');
@@ -1926,6 +1948,14 @@ async function _joinRoomChat(roomId, password) {
 /* ─── Incoming message ──────────────────────────────────────────── */
 function _onRoomIncomingMessage(payload) {
   _appendRoomMessage(payload, false);
+  /* Play in-app sound if not focused on this room */
+  const isActive = document.visibilityState === 'visible'
+    && STATE.currentScreen === 'private-chat';
+  if (!isActive || STATE.privateChat.peerToken !== payload.roomId) {
+    /* will be caught by SW push */
+  } else {
+    _playNotifSound();
+  }
 }
 
 /* ─── UI helpers ────────────────────────────────────────────────── */
@@ -1997,6 +2027,7 @@ function _sendRoomMessage() {
 
   sigCh.send({ type: 'broadcast', event: 'room-msg', payload: msg }).catch(() => {});
   _appendRoomMessage(msg, true);
+  _triggerPeerPush('message', { preview: (text).slice(0, 80) });
 
   input.value = '';
   autoResizeTextarea(input);
@@ -2314,6 +2345,7 @@ function _sendRoomVoiceNote(base64Data, durationSec, mimeType) {
 
   sigCh.send({ type: 'broadcast', event: 'room-msg', payload: msg }).catch(() => {});
   _appendRoomMessage(msg, true);
+  _triggerPeerPush('message', { preview: `🎤 Voice note (${Math.floor(durationSec/60)}:${String(durationSec%60).padStart(2,'0')})` });
 }
 
 /* ─── File Attachment system ─────────────────────────────────────── */
@@ -2358,6 +2390,7 @@ async function _handleFileAttachment(e) {
 
     sigCh.send({ type: 'broadcast', event: 'room-msg', payload: msg }).catch(() => {});
     _appendRoomMessage(msg, true);
+    _triggerPeerPush('message', { preview: `📎 ${file.name}` });
   }
 }
 
@@ -2378,31 +2411,6 @@ async function _copyField(elId, label) {
   showToast(ok ? `${label} copied!` : 'Copy failed.', ok ? 'success' : 'error');
 }
 
-/* ─── Hamburger panel helpers ───────────────────────────────────── */
-function _toggleHamburger() {
-  const panel = $('wa-chat-hamburger-panel');
-  const btn   = $('btn-chat-hamburger');
-  if (!panel) return;
-  const isOpen = !panel.hidden;
-  panel.hidden = isOpen;
-  if (btn) btn.setAttribute('aria-expanded', String(!isOpen));
-}
-
-function _closeHamburger() {
-  const panel = $('wa-chat-hamburger-panel');
-  const btn   = $('btn-chat-hamburger');
-  if (panel) panel.hidden = true;
-  if (btn)   btn.setAttribute('aria-expanded', 'false');
-}
-
-function _onHamburgerOutsideClick(e) {
-  const panel = $('wa-chat-hamburger-panel');
-  const btn   = $('btn-chat-hamburger');
-  if (!panel || panel.hidden) return;
-  if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
-  _closeHamburger();
-}
-
 /* ─── Cleanup ───────────────────────────────────────────────────── */
 function _cleanupPrivateChat() {
   _cleanupRoomCall(true);
@@ -2417,9 +2425,6 @@ function _cleanupPrivateChat() {
   STATE.privateChat.peerInfo           = null;
   STATE.privateChat.iceCandidateBuffer = [];
   _roomPresence = {};
-  /* Close hamburger on cleanup */
-  _closeHamburger();
-  document.removeEventListener('pointerdown', _onHamburgerOutsideClick);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -2522,6 +2527,9 @@ async function _startRoomCall(mode) {
       callerRocket: STATE.identity.rocketConfig,
     },
   }).catch(() => {});
+
+  /* Push notification to peer (they may not have app open) */
+  _triggerPeerPush('call', { callType: mode });
 }
 
 /* ─── Incoming call received ────────────────────────────────────── */
@@ -3741,6 +3749,352 @@ function _pruneMessages(el) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   §22a  PWA & PUSH NOTIFICATION SYSTEM
+   ───────────────────────────────────────────────────────────────────
+   Architecture:
+     App → subscribe Web Push → save endpoint to Supabase (anon, by hash)
+     On send msg/call → POST to Edge Function → push to peer's endpoint
+     SW receives push → shows OS notification even when app is closed
+     User taps notif → SW focuses/opens app → app navigates to room
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── State ── */
+const PUSH = {
+  swRegistration: null,   // ServiceWorkerRegistration
+  subscription:   null,   // PushSubscription
+  permission:     'default',
+  soundEnabled:   true,
+  customSoundUrl: null,   // base64 data URL of user-uploaded sound
+  presetSound:    'default', // 'default' | 'chime' | 'pulse' | 'soft'
+  _notifAudio:    null,   // Audio object for in-app notification sound
+};
+
+/* ── Preset notification sounds (generated via Web Audio API — no files needed) ── */
+const NOTIF_SOUNDS = {
+  default: (ctx) => {
+    /* Classic two-tone ding */
+    const times = [[0, 880, 0.3], [0.18, 1100, 0.2]];
+    times.forEach(([t, freq, vol]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + t);
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.4);
+    });
+  },
+  chime: (ctx) => {
+    /* Soft chime — 3 ascending notes */
+    [[0, 659, 0.2], [0.15, 784, 0.18], [0.30, 988, 0.22]].forEach(([t, freq, vol]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + t);
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + t + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.6);
+      osc.start(ctx.currentTime + t); osc.stop(ctx.currentTime + t + 0.6);
+    });
+  },
+  pulse: (ctx) => {
+    /* Short electronic pulse */
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'square'; osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.2);
+  },
+  soft: (ctx) => {
+    /* Very gentle sine tap */
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine'; osc.frequency.value = 660;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.35);
+  },
+};
+
+/* ── Play in-app notification sound ── */
+let _audioCtx = null;
+function _playNotifSound() {
+  if (!PUSH.soundEnabled) return;
+  try {
+    /* Custom uploaded sound */
+    if (PUSH.customSoundUrl) {
+      const audio = new Audio(PUSH.customSoundUrl);
+      audio.volume = 0.6;
+      audio.play().catch(() => {});
+      return;
+    }
+    /* Web Audio preset */
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const preset = NOTIF_SOUNDS[PUSH.presetSound] || NOTIF_SOUNDS.default;
+    preset(_audioCtx);
+  } catch {}
+}
+
+/* ── Register Service Worker ── */
+async function _registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    PUSH.swRegistration = reg;
+    console.log('[PWA] SW registered, scope:', reg.scope);
+
+    /* Listen for SW messages (notification clicks routed back to app) */
+    navigator.serviceWorker.addEventListener('message', _onSWMessage);
+
+    /* Check for SW updates */
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      if (newSW) newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          showToast('App updated — reload to apply.', 'info', 8000);
+        }
+      });
+    });
+
+    return reg;
+  } catch (e) {
+    console.warn('[PWA] SW registration failed:', e);
+  }
+}
+
+/* ── Request push permission + subscribe ── */
+async function _requestPushPermission() {
+  if (!('Notification' in window) || !PUSH.swRegistration) return false;
+
+  /* Already denied */
+  if (Notification.permission === 'denied') {
+    showToast('Notifications blocked. Enable in browser settings.', 'warn', 6000);
+    return false;
+  }
+
+  /* Request permission */
+  const permission = await Notification.requestPermission();
+  PUSH.permission = permission;
+
+  if (permission !== 'granted') return false;
+
+  /* Subscribe to Web Push */
+  try {
+    const vapidKey = _urlBase64ToUint8Array(CONFIG.VAPID_PUBLIC_KEY);
+    PUSH.subscription = await PUSH.swRegistration.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: vapidKey,
+    });
+    console.log('[PWA] Push subscribed:', PUSH.subscription.endpoint.slice(-20));
+    return true;
+  } catch (e) {
+    console.warn('[PWA] Push subscribe failed:', e);
+    return false;
+  }
+}
+
+/* ── Save push subscription to Supabase for current room ── */
+async function _savePushSubscription(channelHash) {
+  if (!PUSH.subscription || !STATE.supabase) return;
+  if (CONFIG.VAPID_PUBLIC_KEY.includes('YOUR_VAPID')) return; /* not configured yet */
+
+  const sub = PUSH.subscription.toJSON();
+  try {
+    const { error } = await STATE.supabase.rpc('upsert_push_subscription', {
+      p_channel_hash: channelHash,
+      p_session_id:   _getSessionId(),
+      p_subscription: sub,
+    });
+    if (error) console.warn('[PWA] Save push sub failed:', error);
+    else console.log('[PWA] Push subscription saved for channel');
+  } catch (e) {
+    console.warn('[PWA] Save push sub error:', e);
+  }
+}
+
+/* ── Delete push subscription when leaving room ── */
+async function _deletePushSubscription(channelHash) {
+  if (!STATE.supabase || !channelHash) return;
+  try {
+    await STATE.supabase.from('push_subscriptions')
+      .delete()
+      .eq('channel_hash', channelHash)
+      .eq('session_id', _getSessionId());
+  } catch {}
+}
+
+/* ── Trigger push to peer (called on send message / start call) ── */
+async function _triggerPeerPush(type, extraPayload = {}) {
+  const channelHash = STATE.privateChat.roomId; /* already the hash */
+  if (!channelHash) return;
+  if (CONFIG.PUSH_FUNCTION_URL.includes('YOUR_')) return;
+
+  const payload = {
+    type,
+    roomId:     STATE.privateChat.peerToken,
+    senderName: STATE.identity?.username ?? 'Anonymous',
+    ...extraPayload,
+  };
+
+  try {
+    await fetch(CONFIG.PUSH_FUNCTION_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json',
+                 'Authorization': `Bearer ${CONFIG.SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({
+        channel_hash:   channelHash,
+        sender_session: _getSessionId(),
+        payload,
+      }),
+    });
+  } catch (e) {
+    /* Non-critical — peer will see message when they open app */
+    console.warn('[PWA] Push trigger failed:', e);
+  }
+}
+
+/* ── Handle SW → App messages (notification tapped) ── */
+function _onSWMessage(event) {
+  const { type, action, data } = event.data || {};
+  if (type !== 'NOTIF_CLICK') return;
+
+  if (data?.roomId && action !== 'decline') {
+    /* Navigate to the room that was notified */
+    _navigateToRoomFromNotif(data.roomId, data.type, data.callType);
+  }
+}
+
+function _navigateToRoomFromNotif(roomId, notifType, callType) {
+  /* If already on private chat screen, just open the room */
+  if (STATE.currentScreen === 'private-chat') {
+    _openRoomConv(roomId);
+    return;
+  }
+  /* Otherwise navigate to private chat screen then open room */
+  STATE._pendingRoomOpen = { roomId, notifType, callType };
+  navigateTo('private-chat');
+}
+
+/* ── VAPID key conversion helper ── */
+function _urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const binary  = atob(base64);
+  return Uint8Array.from(binary, c => c.charCodeAt(0));
+}
+
+/* ── Notification Settings — stored in localStorage ── */
+function _loadNotifSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('alex_notif_settings') || '{}');
+    PUSH.soundEnabled   = s.soundEnabled   ?? true;
+    PUSH.presetSound    = s.presetSound    ?? 'default';
+    PUSH.customSoundUrl = s.customSoundUrl ?? null;
+  } catch {}
+}
+
+function _saveNotifSettings() {
+  try {
+    localStorage.setItem('alex_notif_settings', JSON.stringify({
+      soundEnabled:   PUSH.soundEnabled,
+      presetSound:    PUSH.presetSound,
+      customSoundUrl: PUSH.customSoundUrl,
+    }));
+  } catch {}
+}
+
+/* ── Init PWA (called from _boot) ── */
+async function _initPWA() {
+  _loadNotifSettings();
+  await _registerServiceWorker();
+
+  /* Check if URL has pending room (from notification tap) */
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomParam = urlParams.get('room');
+  if (roomParam) {
+    STATE._pendingRoomOpen = { roomId: roomParam, notifType: urlParams.get('action') };
+  }
+
+  /* If permission already granted, re-subscribe silently */
+  if (Notification.permission === 'granted' && PUSH.swRegistration) {
+    try {
+      PUSH.subscription = await PUSH.swRegistration.pushManager.getSubscription();
+    } catch {}
+  }
+
+  PUSH.permission = Notification.permission;
+}
+
+/* ─── Push permission prompt ─────────────────────────────────────── */
+async function _promptPushPermission() {
+  if (Notification.permission !== 'default') return;
+  showToast('Enable notifications to get alerts when peer messages you.', 'info', 8000);
+  setTimeout(async () => {
+    const ok = await _requestPushPermission();
+    if (ok) showToast('🔔 Notifications enabled!', 'success');
+  }, 500);
+}
+
+/* ─── Notification settings UI ──────────────────────────────────── */
+function _initNotifSettings() {
+  document.querySelectorAll('[data-notif-sound]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      PUSH.presetSound    = btn.dataset.notifSound;
+      PUSH.customSoundUrl = null;
+      _saveNotifSettings();
+      document.querySelectorAll('[data-notif-sound]').forEach(b =>
+        b.classList.toggle('notif-preset--active', b === btn));
+      _playNotifSound();
+      showToast('Sound updated!', 'success');
+    });
+  });
+
+  const soundToggle = $('notif-sound-toggle');
+  if (soundToggle) {
+    soundToggle.checked = PUSH.soundEnabled;
+    soundToggle.onchange = () => { PUSH.soundEnabled = soundToggle.checked; _saveNotifSettings(); };
+  }
+
+  const uploadBtn   = $('btn-upload-notif-sound');
+  const uploadInput = $('notif-sound-upload-input');
+  if (uploadBtn && uploadInput) {
+    uploadBtn.onclick = () => uploadInput.click();
+    uploadInput.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > 500 * 1024) { showToast('Sound file max 500KB.', 'warn'); return; }
+      const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+      PUSH.customSoundUrl = b64; _saveNotifSettings(); _playNotifSound();
+      showToast(`Custom sound: ${file.name}`, 'success'); uploadInput.value = '';
+    };
+  }
+
+  const clearSoundBtn = $('btn-clear-notif-sound');
+  if (clearSoundBtn) clearSoundBtn.onclick = () => { PUSH.customSoundUrl = null; _saveNotifSettings(); showToast('Reverted to preset.', 'info'); };
+
+  const enablePushBtn = $('btn-enable-push');
+  if (enablePushBtn) {
+    _updatePushBtn(enablePushBtn);
+    enablePushBtn.onclick = async () => { const ok = await _requestPushPermission(); _updatePushBtn(enablePushBtn); if (ok) showToast('🔔 Enabled!', 'success'); };
+  }
+}
+
+function _updatePushBtn(btn) {
+  const p = Notification.permission;
+  btn.textContent = p === 'granted' ? '✅ Notifications ON'
+    : p === 'denied' ? '🚫 Blocked — enable in browser settings'
+    : '🔔 Enable Push Notifications';
+  btn.disabled = (p !== 'default');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    §22b  SHOOTING STARS — Canvas-based, single RAF loop
    Satu <canvas> element menggantikan 90+ DOM nodes.
    Pauses otomatis saat tab tidak aktif (visibilitychange).
@@ -3886,7 +4240,8 @@ function _boot() {
   /* ── Core non-screen systems ── */
   initCursor();
   _initRecoveryModal();
-  _initShootingStars();    /* ← global shooting stars */
+  _initShootingStars();    /* ← global Canvas star field */
+  _initPWA();              /* ← Service Worker + push subscription */
 
   /* ── Keyboard accessibility for modals ── */
   document.addEventListener('keydown', e => {
